@@ -107,6 +107,8 @@ export interface GitChange {
 export interface GitChangeDiff {
   modified: string;
   original: string;
+  /** Unified diff string when the runtime provides one (local + cloud git-diff). */
+  diff?: string;
 }
 
 export interface GitCommit {

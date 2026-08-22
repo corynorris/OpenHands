@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { LayoutGroup } from "framer-motion";
 import {
   Gauge,
-  GitPullRequest,
+  GitCompareArrows,
   Globe,
   ListTodo,
   SquareChevronRight,
@@ -27,7 +27,6 @@ import { useActiveBackend } from "#/contexts/active-backend-context";
 import { useHandleBuildPlanClick } from "#/hooks/use-handle-build-plan-click";
 import { useAgentState } from "#/hooks/use-agent-state";
 import { AgentState } from "#/types/agent-state";
-import { useConversationPrimaryRepository } from "#/hooks/use-conversation-primary-repository";
 import { Typography } from "#/ui/typography";
 import { mobileTopBarIconClassName } from "#/utils/mobile-top-bar-icon-button-classes";
 
@@ -49,8 +48,6 @@ export function ConversationTabs({
 
   const { hasTaskList } = useTaskList();
   const { backend } = useActiveBackend();
-  const { isConnected: hasConnectedRepository } =
-    useConversationPrimaryRepository();
 
   const { handleBuildPlanClick } = useHandleBuildPlanClick();
   const { curAgentState } = useAgentState();
@@ -110,21 +107,17 @@ export function ConversationTabs({
       tooltipAriaLabel: t(I18nKey.DIFF_VIEWER$COMMITS),
       label: t(I18nKey.DIFF_VIEWER$COMMITS),
     },
-    // Pull-request review — only when a repository is connected to this
-    // conversation (the tab is backed by the provider REST API).
-    ...(hasConnectedRepository
-      ? [
-          {
-            tabValue: "pr-review" as const,
-            isActive: isTabActive("pr-review"),
-            icon: GitPullRequest,
-            onClick: () => selectTab("pr-review"),
-            tooltipContent: t(I18nKey.PR$TAB_LABEL),
-            tooltipAriaLabel: t(I18nKey.PR$TAB_LABEL),
-            label: t(I18nKey.PR$TAB_LABEL),
-          },
-        ]
-      : []),
+    // Working-tree changes review — local-git based (like the Commits tab),
+    // so it shows regardless of any provider connection.
+    {
+      tabValue: "pr-review" as const,
+      isActive: isTabActive("pr-review"),
+      icon: GitCompareArrows,
+      onClick: () => selectTab("pr-review"),
+      tooltipContent: t(I18nKey.COMMON$CHANGES),
+      tooltipAriaLabel: t(I18nKey.COMMON$CHANGES),
+      label: t(I18nKey.COMMON$CHANGES),
+    },
     {
       tabValue: "planner",
       isActive: isTabActive("planner"),

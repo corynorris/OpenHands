@@ -12,7 +12,7 @@ import {
 import { I18nKey } from "#/i18n/declaration";
 import {
   Gauge,
-  GitPullRequest,
+  GitCompareArrows,
   Globe,
   ListTodo,
   SquareChevronRight,
@@ -26,7 +26,6 @@ import { useTaskList } from "#/hooks/use-task-list";
 import { useActiveBackend } from "#/contexts/active-backend-context";
 import { useSelectConversationTab } from "#/hooks/use-select-conversation-tab";
 import { useIsArchivedConversation } from "#/hooks/use-is-archived-conversation";
-import { useConversationPrimaryRepository } from "#/hooks/use-conversation-primary-repository";
 import { ArchivedDisabledTooltip } from "../../context-menu/archived-disabled-tooltip";
 import { cn } from "#/utils/utils";
 import {
@@ -96,8 +95,6 @@ export function ConversationTabsContextMenu({
   const { hasTaskList } = useTaskList();
   const { backend } = useActiveBackend();
   const isArchivedConversation = useIsArchivedConversation();
-  const { isConnected: hasConnectedRepository } =
-    useConversationPrimaryRepository();
 
   const tabConfig = [
     {
@@ -111,15 +108,11 @@ export function ConversationTabsContextMenu({
       icon: LuFileDiff,
       i18nKey: I18nKey.DIFF_VIEWER$COMMITS,
     },
-    ...(hasConnectedRepository
-      ? [
-          {
-            tab: "pr-review" as const,
-            icon: GitPullRequest,
-            i18nKey: I18nKey.PR$TAB_LABEL,
-          },
-        ]
-      : []),
+    {
+      tab: "pr-review" as const,
+      icon: GitCompareArrows,
+      i18nKey: I18nKey.COMMON$CHANGES,
+    },
     {
       tab: "terminal",
       icon: SquareChevronRight,
@@ -208,7 +201,7 @@ export function ConversationTabsContextMenu({
                   data-testid={`conversation-tabs-menu-open-${tab}`}
                   disabled={isArchivedConversation}
                   className={cn(
-                    "flex min-w-0 flex-1 items-center gap-2 rounded-l p-2 text-start text-white",
+                    "flex min-w-0 flex-1 items-center gap-2 rounded-l p-2 text-start text-[var(--oh-foreground)]",
                     dropdownInstantColorClassName,
                     isArchivedConversation
                       ? "cursor-not-allowed"
@@ -229,7 +222,7 @@ export function ConversationTabsContextMenu({
                   data-testid={`conversation-tabs-menu-pin-${tab}`}
                   disabled={isArchivedConversation}
                   className={cn(
-                    "flex shrink-0 items-center justify-center rounded-r px-2 text-white",
+                    "flex shrink-0 items-center justify-center rounded-r px-2 text-[var(--oh-foreground)]",
                     dropdownInstantColorClassName,
                     isArchivedConversation
                       ? "cursor-not-allowed"
