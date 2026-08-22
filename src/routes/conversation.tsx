@@ -23,6 +23,7 @@ import { displayErrorToast } from "#/utils/custom-toast-handlers";
 import { useIsAuthed } from "#/hooks/query/use-is-authed";
 import { ConversationMain } from "#/components/features/conversation/conversation-main/conversation-main";
 import { ConversationMobilePanelPage } from "#/components/features/conversation/conversation-main/conversation-mobile-panel-page";
+import { FileSwitcher } from "#/components/features/files-tab/file-switcher";
 import { ConversationOverviewDrawerProvider } from "#/components/features/conversation/conversation-overview-drawer-context";
 
 import { WebSocketProviderWrapper } from "#/contexts/websocket-provider-wrapper";
@@ -204,6 +205,9 @@ function AppContent() {
           ) : (
             <ConversationMain />
           )}
+          {/* Ctrl+P file switcher — global to the conversation route so it
+              works from any tab. Opens files into the Files tab. */}
+          <FileSwitcher />
         </div>
       </ConversationOverviewDrawerProvider>
     </EventHandler>

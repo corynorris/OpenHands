@@ -183,8 +183,13 @@ function useCloudWorkspaceFiles(enabled: boolean): WorkspaceFilesResult {
  * provider isn't in scope), which would run the local bash path against a cloud
  * backend: `executeCommand` then POSTs to the removed `/api/cloud-proxy` (405)
  * and the cloud `/files` call never fires.
+ *
+ * @param enabled When false the underlying query stays disabled. Defaults to
+ * true so existing callers (Files tab) are unchanged; the Ctrl+P file
+ * switcher passes a flag so the expensive workspace enumeration only runs
+ * after the switcher is opened for the first time.
  */
-export function useWorkspaceFiles(): WorkspaceFilesResult {
+export function useWorkspaceFiles(enabled = true): WorkspaceFilesResult {
   const snapshot = useSyncExternalStore(
     subscribeActiveBackend,
     getSnapshot,
@@ -192,8 +197,8 @@ export function useWorkspaceFiles(): WorkspaceFilesResult {
   );
   const isCloud = snapshot.active.backend.kind === "cloud";
 
-  const local = useLocalWorkspaceFiles(!isCloud);
-  const cloud = useCloudWorkspaceFiles(isCloud);
+  const local = useLocalWorkspaceFiles(!isCloud && enabled);
+  const cloud = useCloudWorkspaceFiles(isCloud && enabled);
 
   return isCloud ? cloud : local;
 }
