@@ -89,8 +89,8 @@ export function FileQuickRow({
                   index === 0 && "border-l border-l-[var(--oh-border)]",
                   "border-b-2 -mb-px transition-colors",
                   isSelected
-                    ? "border-b-white text-white"
-                    : "border-b-transparent text-[var(--oh-muted)] hover:text-white hover:border-b-white/25",
+                    ? "border-b-[var(--oh-foreground)] text-[var(--oh-foreground)]"
+                    : "border-b-transparent text-[var(--oh-muted)] hover:text-[var(--oh-foreground)] hover:border-b-[var(--oh-foreground)]/25",
                 )}
               >
                 <button
@@ -128,6 +128,14 @@ export function FileQuickRow({
                     "md:opacity-0 md:group-hover/file-tab:opacity-100 md:group-focus-within/file-tab:opacity-100",
                   )}
                   onClick={() => onCloseFile(path)}
+                  onAuxClick={(event) => {
+                    // Middle-click closes the tab too (browser-like), matching
+                    // the tab body. Prevent the default autoscroll.
+                    if (event.button === 1) {
+                      event.preventDefault();
+                      onCloseFile(path);
+                    }
+                  }}
                 >
                   <CloseIcon width={10} height={10} aria-hidden />
                 </button>

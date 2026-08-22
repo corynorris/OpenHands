@@ -188,7 +188,7 @@ export function FileSwitcher() {
           <input
             ref={inputRef}
             id={FILE_SWITCHER_INPUT_ID}
-            className="h-11 min-w-0 flex-1 bg-transparent text-base text-white outline-none placeholder:text-[var(--oh-text-dim)]"
+            className="h-11 min-w-0 flex-1 bg-transparent text-base text-[var(--oh-foreground)] outline-none placeholder:text-[var(--oh-text-dim)]"
             placeholder={t(I18nKey.FILE_SWITCHER$PLACEHOLDER)}
             aria-label={t(I18nKey.FILE_SWITCHER$SEARCH_LABEL)}
             role="combobox"
@@ -204,7 +204,7 @@ export function FileSwitcher() {
           {query ? (
             <button
               type="button"
-              className="inline-flex size-8 items-center justify-center rounded-lg text-[var(--oh-muted)] hover:bg-[var(--oh-surface-raised)] hover:text-white"
+              className="inline-flex size-8 items-center justify-center rounded-lg text-[var(--oh-muted)] hover:bg-[var(--oh-surface-raised)] hover:text-[var(--oh-foreground)]"
               aria-label={t(I18nKey.FILE_SWITCHER$CLEAR_SEARCH_LABEL)}
               onClick={() => {
                 setQuery("");
@@ -229,7 +229,7 @@ export function FileSwitcher() {
               <div className="flex size-11 items-center justify-center rounded-2xl border border-dashed border-[var(--oh-border)] text-[var(--oh-text-dim)]">
                 <FileSearch className="size-5" />
               </div>
-              <p className="text-sm font-medium text-white">
+              <p className="text-sm font-medium text-[var(--oh-foreground)]">
                 {t(I18nKey.FILE_SWITCHER$LOADING)}
               </p>
             </div>
@@ -238,7 +238,7 @@ export function FileSwitcher() {
               <div className="flex size-11 items-center justify-center rounded-2xl border border-dashed border-[var(--oh-border)] text-[var(--oh-text-dim)]">
                 <Search className="size-5" />
               </div>
-              <p className="text-sm font-medium text-white">
+              <p className="text-sm font-medium text-[var(--oh-foreground)]">
                 {t(I18nKey.FILE_SWITCHER$NO_RESULTS)}
               </p>
             </div>
@@ -261,7 +261,7 @@ export function FileSwitcher() {
                       className={cn(
                         "flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-left",
                         isActive
-                          ? "bg-[var(--oh-interactive-active)] text-white"
+                          ? "bg-[var(--oh-interactive-active)] text-[var(--oh-foreground)]"
                           : "text-[var(--oh-muted)] hover:bg-[var(--oh-surface-raised)]",
                       )}
                     >
