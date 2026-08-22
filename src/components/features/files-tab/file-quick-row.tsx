@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import CloseIcon from "#/icons/u-close.svg?react";
 import { I18nKey } from "#/i18n/declaration";
 import { cn } from "#/utils/utils";
+import { FileTypeIcon } from "./file-type-icon";
 
 interface FileQuickRowProps {
   /** Open file tabs only (paths the user or agent has opened). */
@@ -108,8 +109,9 @@ export function FileQuickRow({
                   }}
                   title={path}
                   data-testid={`file-quick-row-item-${path}`}
-                  className="flex min-w-0 max-w-[160px] items-center pl-2.5 pr-1 text-xs cursor-pointer text-inherit"
+                  className="flex min-w-0 max-w-[160px] items-center gap-1 pl-2.5 pr-1 text-xs cursor-pointer text-inherit"
                 >
+                  <FileTypeIcon path={path} className="size-3" />
                   <span className="truncate">{fileName}</span>
                 </button>
                 <button

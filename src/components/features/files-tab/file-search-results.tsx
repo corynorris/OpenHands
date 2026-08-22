@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 
-import FileIcon from "#/icons/file.svg?react";
+import { FileTypeIcon } from "./file-type-icon";
 
 const MAX_RESULTS = 200;
 
@@ -45,7 +45,7 @@ export function FileSearchResults({
               data-testid={`file-search-result-${path}`}
               className="flex w-full items-center gap-1.5 px-3 py-1 text-left hover:bg-tertiary"
             >
-              <FileIcon className="size-3.5 shrink-0" />
+              <FileTypeIcon path={path} className="size-3.5" />
               <span className="truncate font-mono text-xs text-[var(--oh-text-tertiary)] hover:text-white">
                 {path}
               </span>

@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 
-import FileIcon from "#/icons/file.svg?react";
 import FolderIcon from "#/icons/folder.svg?react";
+import { FileTypeIcon } from "./file-type-icon";
 import { FileTreeNode } from "#/utils/file-tree";
 import { cn } from "#/utils/utils";
 
@@ -84,7 +84,7 @@ export function TreeNode({
         // per-row indentation computed from tree depth at runtime
         style={{ paddingLeft: `${indentPx + 16}px` }}
       >
-        <FileIcon className="w-3.5 h-3.5 shrink-0" />
+        <FileTypeIcon path={node.path} className="w-3.5 h-3.5" />
         <span className="truncate">{node.name}</span>
       </button>
     </li>
