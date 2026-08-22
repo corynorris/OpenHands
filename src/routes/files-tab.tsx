@@ -34,6 +34,8 @@ import {
 import { ResizeHandle } from "#/components/ui/resize-handle";
 import RefreshIcon from "#/icons/u-refresh.svg?react";
 import LinkExternalIcon from "#/icons/link-external.svg?react";
+import { Search } from "lucide-react";
+import { FileSearchResults } from "#/components/features/files-tab/file-search-results";
 import { useActiveConversation } from "#/hooks/query/use-active-conversation";
 
 /**
@@ -78,6 +80,14 @@ function FilesTab() {
 
   const filesQuery = useWorkspaceFiles();
   const paths = useMemo(() => filesQuery.data ?? [], [filesQuery.data]);
+
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const filteredPaths = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return paths;
+    return paths.filter((path) => path.toLowerCase().includes(query));
+  }, [paths, searchQuery]);
 
   const storedSelectedPath = useFilesTabStore((s) => s.selectedPath);
   const selectedConversationId = useFilesTabStore(
@@ -189,15 +199,48 @@ function FilesTab() {
             {isTreeVisible && (
               <>
                 <aside
-                  className="shrink-0 border-r border-[var(--oh-border)] overflow-y-auto custom-scrollbar-always"
+                  className="shrink-0 border-r border-[var(--oh-border)] flex flex-col"
                   data-testid="files-tab-tree"
                   style={{ width: `${treeWidth}px` }}
                 >
-                  <FileTreeView
-                    paths={paths}
-                    selectedPath={selectedPath}
-                    onSelectFile={handleSelectFile}
-                  />
+                  <div className="shrink-0 border-b border-[var(--oh-border)] p-2">
+                    <div className="relative">
+                      <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-[var(--oh-text-dim)]" />
+                      <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(event) => setSearchQuery(event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Escape") {
+                            setSearchQuery("");
+                          } else if (
+                            event.key === "Enter" &&
+                            filteredPaths.length > 0
+                          ) {
+                            handleSelectFile(filteredPaths[0]);
+                          }
+                        }}
+                        placeholder="Search files…"
+                        aria-label="Search files"
+                        data-testid="files-tab-search"
+                        className="h-8 w-full rounded-md border border-[var(--oh-border-input)] bg-[var(--oh-bg-input)] pl-8 pr-2 text-sm text-white outline-none placeholder:text-[var(--oh-text-dim)] focus:border-[var(--oh-focus)]"
+                      />
+                    </div>
+                  </div>
+                  <div className="min-h-0 flex-1 overflow-y-auto custom-scrollbar-always">
+                    {searchQuery.trim() ? (
+                      <FileSearchResults
+                        paths={filteredPaths}
+                        onSelectFile={handleSelectFile}
+                      />
+                    ) : (
+                      <FileTreeView
+                        paths={paths}
+                        selectedPath={selectedPath}
+                        onSelectFile={handleSelectFile}
+                      />
+                    )}
+                  </div>
                 </aside>
                 <ResizeHandle
                   testId={FILES_TAB_TREE_RESIZE_HANDLE_TEST_ID}

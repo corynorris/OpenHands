@@ -51,7 +51,7 @@ export function HighlightedSourceView({
         language={language}
         style={vscDarkPlus}
         showLineNumbers
-        wrapLongLines={false}
+        wrapLongLines
         // Override the theme's hard-coded background so the highlighter
         // blends with the right-pane chrome instead of painting a slab
         // of a slightly-different dark color.

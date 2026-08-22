@@ -12,8 +12,10 @@ import { useOptionalConversationId } from "#/hooks/use-conversation-id";
 import { useRuntimeIsReady } from "#/hooks/use-runtime-is-ready";
 import { getGitPath } from "#/utils/get-git-path";
 
-// Cap the number of files we render so a giant repo doesn't freeze the UI.
-const MAX_FILES = 2000;
+// Cap at a generous bound. The tree renders lazily (only expanded folders
+// mount nodes), so a large flat path list is cheap; the cap only guards
+// against pathological repos.
+const MAX_FILES = 100000;
 
 export interface WorkspaceFilesResult {
   data: string[] | undefined;
