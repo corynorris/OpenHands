@@ -9,6 +9,7 @@ import { UsageSection } from "../metrics-modal/usage-section";
 import { CompactContextButton } from "./compact-context-button";
 import { ContextMeter } from "./context-meter";
 import { ProviderBalanceCard } from "./provider-balance-card";
+import { PeakHoursBadge } from "#/components/features/chat/components/peak-hours-badge";
 import { getContextWindowUsagePercentage } from "#/utils/format-token-count";
 
 /**
@@ -46,10 +47,15 @@ export function UsagePanel() {
       {usage !== null && (
         <div className="rounded-md border border-[var(--oh-border)] bg-surface-raised p-3">
           <div className="grid gap-3">
-            <ContextMeter
-              perTurnToken={usage.per_turn_token}
-              contextWindow={usage.context_window}
-            />
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                <ContextMeter
+                  perTurnToken={usage.per_turn_token}
+                  contextWindow={usage.context_window}
+                />
+              </div>
+              <PeakHoursBadge />
+            </div>
             <CompactContextButton
               fillPercent={getContextWindowUsagePercentage(
                 usage.per_turn_token,

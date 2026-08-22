@@ -13,7 +13,6 @@ import { resolvePickerKind } from "./resolve-picker-kind";
 import { ChatAddFileButton } from "../chat-add-file-button";
 import { ChatSendButton } from "../chat-send-button";
 import { ContextWindowMeter } from "./context-window-meter";
-import { PeakHoursBadge } from "./peak-hours-badge";
 import CarretRightFillIcon from "#/icons/carret-right-fill.svg?react";
 import LessonPlanIcon from "#/icons/lesson-plan.svg?react";
 import ThreeDotsVerticalIcon from "#/icons/three-dots-vertical.svg?react";
@@ -453,7 +452,6 @@ export function ChatInputActions({
               <ChatInputLlmProfilePicker />
             )}
           </div>
-          <PeakHoursBadge />
 
           {hasOverflowItems && (
             <div className="relative shrink-0">

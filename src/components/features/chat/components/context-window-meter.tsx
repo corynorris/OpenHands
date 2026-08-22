@@ -21,6 +21,7 @@ import {
   ContextWindowRing,
   CONTEXT_WINDOW_TRACK_COLOR,
 } from "./context-window-ring";
+import { PeakHoursBadge } from "./peak-hours-badge";
 
 const TONE_BAR_CLASS = {
   neutral: "bg-foreground",
@@ -102,11 +103,16 @@ export function ContextWindowMeter() {
         >
           <div className="flex flex-col gap-2 px-2 py-1.5">
             <div className="flex items-center justify-between gap-2 text-sm">
-              <span className="font-semibold text-[var(--oh-foreground)]">
+              <span className="shrink-0 font-semibold text-[var(--oh-foreground)]">
                 {t(I18nKey.CONVERSATION$CONTEXT_WINDOW)}
               </span>
-              <span className={cn("shrink-0 text-xs", TONE_LABEL_CLASS[tone])}>
-                {usagePercentLabel}
+              <span className="flex min-w-0 items-center gap-2">
+                <PeakHoursBadge />
+                <span
+                  className={cn("truncate text-xs", TONE_LABEL_CLASS[tone])}
+                >
+                  {usagePercentLabel}
+                </span>
               </span>
             </div>
 
