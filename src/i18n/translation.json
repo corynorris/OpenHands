@@ -1,4 +1,21 @@
 {
+  "COMMON$OFF_PEAK": {
+    "en": "Off-peak",
+    "ja": "",
+    "zh-CN": "",
+    "zh-TW": "",
+    "ko-KR": "",
+    "fr": "",
+    "es": "",
+    "de": "",
+    "it": "",
+    "pt": "",
+    "ar": "",
+    "no": "",
+    "tr": "",
+    "uk": "",
+    "ca": ""
+  },
   "COMMON$PATTERN": {
     "ar": "النمط:",
     "ca": "Patró:",
@@ -32,6 +49,40 @@
     "uk": "Включити:",
     "zh-CN": "包含:",
     "zh-TW": "包含:"
+  },
+  "COMMON$PEAK": {
+    "en": "Peak",
+    "ja": "",
+    "zh-CN": "",
+    "zh-TW": "",
+    "ko-KR": "",
+    "fr": "",
+    "es": "",
+    "de": "",
+    "it": "",
+    "pt": "",
+    "ar": "",
+    "no": "",
+    "tr": "",
+    "uk": "",
+    "ca": ""
+  },
+  "COMMON$PEAK_HOURS_TOOLTIP": {
+    "en": "DeepSeek pricing windows (UTC): peak 01:00-04:00 & 06:00-10:00 Mon-Fri; off-peak otherwise (official off-peak: 08:30-16:30 UTC)",
+    "ja": "",
+    "zh-CN": "",
+    "zh-TW": "",
+    "ko-KR": "",
+    "fr": "",
+    "es": "",
+    "de": "",
+    "it": "",
+    "pt": "",
+    "ar": "",
+    "no": "",
+    "tr": "",
+    "uk": "",
+    "ca": ""
   },
   "COMMON$RESULTS": {
     "ar": "النتائج ({{count}})",
