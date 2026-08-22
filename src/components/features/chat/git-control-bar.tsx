@@ -2,9 +2,6 @@ import { useState, useRef, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { GitControlBarRepoButton } from "./git-control-bar-repo-button";
 import { GitControlBarBranchButton } from "./git-control-bar-branch-button";
-import { GitControlBarPullButton } from "./git-control-bar-pull-button";
-import { GitControlBarPushButton } from "./git-control-bar-push-button";
-import { GitControlBarPrButton } from "./git-control-bar-pr-button";
 import { useActiveConversation } from "#/hooks/query/use-active-conversation";
 import { useLocalGitInfo } from "#/hooks/query/use-local-git-info";
 import { useTaskPolling } from "#/hooks/query/use-task-polling";
@@ -16,7 +13,6 @@ import { useCreateConversation } from "#/hooks/mutation/use-create-conversation"
 import { Provider } from "#/types/settings";
 import { Branch, GitRepository } from "#/types/git";
 import { I18nKey } from "#/i18n/declaration";
-import { GitControlBarTooltipWrapper } from "./git-control-bar-tooltip-wrapper";
 import { OpenRepositoryModal } from "./open-repository-modal";
 import { useConversationId } from "#/hooks/use-conversation-id";
 import { displayErrorToast } from "#/utils/custom-toast-handlers";
@@ -24,14 +20,9 @@ import { useHomeStore } from "#/stores/home-store";
 import { useOptimisticUserMessageStore } from "#/stores/optimistic-user-message-store";
 import { getStoredConversationMetadata } from "#/api/conversation-metadata-store";
 import { useActiveBackend } from "#/contexts/active-backend-context";
-import { useUserProviders } from "#/hooks/use-user-providers";
 import { useOptionalScrollContext } from "#/context/scroll-context";
 
-interface GitControlBarProps {
-  onSuggestionsClick: (value: string) => void;
-}
-
-export function GitControlBar({ onSuggestionsClick }: GitControlBarProps) {
+export function GitControlBar() {
   const { t } = useTranslation("openhands");
   const { conversationId } = useConversationId();
   const [isOpenRepoModalOpen, setIsOpenRepoModalOpen] = useState(false);
@@ -46,8 +37,6 @@ export function GitControlBar({ onSuggestionsClick }: GitControlBarProps) {
   );
   const { backend } = useActiveBackend();
   const isLocalBackend = backend.kind === "local";
-  const { providers } = useUserProviders();
-  const providerTokensReady = isLocalBackend || providers.length > 0;
 
   const { data: conversation } = useActiveConversation();
   const { repositoryInfo } = useTaskPolling();
@@ -241,51 +230,6 @@ export function GitControlBar({ onSuggestionsClick }: GitControlBarProps) {
             selectedRepository={selectedRepository}
             gitProvider={gitProvider}
           />
-        ) : null}
-
-        {hasRepository ? (
-          <>
-            <GitControlBarTooltipWrapper
-              tooltipMessage={t(I18nKey.COMMON$GIT_TOOLS_DISABLED_CONTENT)}
-              testId="git-control-bar-pull-button-tooltip"
-              shouldShowTooltip={!hasRepository}
-            >
-              <GitControlBarPullButton
-                onSuggestionsClick={onSuggestionsClick}
-                hasRepository={hasRepository}
-                providerTokensReady={providerTokensReady}
-                isConversationReady={isConversationReady}
-              />
-            </GitControlBarTooltipWrapper>
-
-            <GitControlBarTooltipWrapper
-              tooltipMessage={t(I18nKey.COMMON$GIT_TOOLS_DISABLED_CONTENT)}
-              testId="git-control-bar-push-button-tooltip"
-              shouldShowTooltip={!hasRepository}
-            >
-              <GitControlBarPushButton
-                onSuggestionsClick={onSuggestionsClick}
-                hasRepository={hasRepository}
-                providerTokensReady={providerTokensReady}
-                currentGitProvider={gitProvider}
-                isConversationReady={isConversationReady}
-              />
-            </GitControlBarTooltipWrapper>
-
-            <GitControlBarTooltipWrapper
-              tooltipMessage={t(I18nKey.COMMON$GIT_TOOLS_DISABLED_CONTENT)}
-              testId="git-control-bar-pr-button-tooltip"
-              shouldShowTooltip={!hasRepository}
-            >
-              <GitControlBarPrButton
-                onSuggestionsClick={onSuggestionsClick}
-                hasRepository={hasRepository}
-                providerTokensReady={providerTokensReady}
-                currentGitProvider={gitProvider}
-                isConversationReady={isConversationReady}
-              />
-            </GitControlBarTooltipWrapper>
-          </>
         ) : null}
       </div>
 

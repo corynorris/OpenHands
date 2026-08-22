@@ -53,19 +53,6 @@ vi.mock("#/components/features/chat/git-control-bar-repo-button", () => ({
 vi.mock("#/components/features/chat/git-control-bar-branch-button", () => ({
   GitControlBarBranchButton: () => null,
 }));
-vi.mock("#/components/features/chat/git-control-bar-pull-button", () => ({
-  GitControlBarPullButton: () => null,
-}));
-vi.mock("#/components/features/chat/git-control-bar-push-button", () => ({
-  GitControlBarPushButton: () => null,
-}));
-vi.mock("#/components/features/chat/git-control-bar-pr-button", () => ({
-  GitControlBarPrButton: () => null,
-}));
-vi.mock("#/components/features/chat/git-control-bar-tooltip-wrapper", () => ({
-  GitControlBarTooltipWrapper: ({ children }: { children: React.ReactNode }) =>
-    children,
-}));
 vi.mock("#/components/features/chat/open-repository-modal", () => ({
   OpenRepositoryModal: (props: {
     onLaunch?: (repo: unknown, branch: unknown) => void;
@@ -169,7 +156,7 @@ describe("GitControlBar repo button visibility", () => {
   it("hides the repo button on a local backend with no repository or workspace name", () => {
     vi.mocked(useActiveBackend).mockReturnValue(makeBackend("local"));
 
-    renderWithProviders(<GitControlBar onSuggestionsClick={vi.fn()} />);
+    renderWithProviders(<GitControlBar />);
 
     expect(
       screen.queryByTestId("git-control-bar-repo-button"),
@@ -179,7 +166,7 @@ describe("GitControlBar repo button visibility", () => {
   it("shows the repo button on a cloud backend with no repository connected", () => {
     vi.mocked(useActiveBackend).mockReturnValue(makeBackend("cloud"));
 
-    renderWithProviders(<GitControlBar onSuggestionsClick={vi.fn()} />);
+    renderWithProviders(<GitControlBar />);
 
     expect(
       screen.getByTestId("git-control-bar-repo-button"),
@@ -192,7 +179,7 @@ describe("GitControlBar repo button visibility", () => {
       selected_workspace: "/projects/my-app",
     } as ReturnType<typeof getStoredConversationMetadata>);
 
-    renderWithProviders(<GitControlBar onSuggestionsClick={vi.fn()} />);
+    renderWithProviders(<GitControlBar />);
 
     const button = screen.getByTestId("git-control-bar-repo-button");
     expect(button).toHaveAttribute("data-disabled", "true");
@@ -204,7 +191,7 @@ describe("GitControlBar repo button visibility", () => {
       isLoadingHistory: true,
     } as ReturnType<typeof useConversationWebSocket>);
 
-    renderWithProviders(<GitControlBar onSuggestionsClick={vi.fn()} />);
+    renderWithProviders(<GitControlBar />);
 
     const button = screen.getByTestId("git-control-bar-repo-button");
     expect(button).toHaveAttribute("data-disabled", "true");
@@ -264,7 +251,7 @@ describe("GitControlBar - Auto-scroll on clone (issue #817)", () => {
 
     renderWithProviders(
       <ScrollProvider value={scrollValue}>
-        <GitControlBar onSuggestionsClick={vi.fn()} />
+        <GitControlBar />
       </ScrollProvider>,
     );
 
