@@ -97,6 +97,15 @@ export function FileQuickRow({
                   role="tab"
                   aria-selected={isSelected}
                   onClick={() => onSelectFile(path)}
+                  onAuxClick={(event) => {
+                    // Middle-click closes the tab (browser-like). Prevent the
+                    // default middle-click autoscroll so the page doesn't
+                    // enter scroll mode on every tab close.
+                    if (event.button === 1) {
+                      event.preventDefault();
+                      onCloseFile(path);
+                    }
+                  }}
                   title={path}
                   data-testid={`file-quick-row-item-${path}`}
                   className="flex min-w-0 max-w-[160px] items-center pl-2.5 pr-1 text-xs cursor-pointer text-inherit"
