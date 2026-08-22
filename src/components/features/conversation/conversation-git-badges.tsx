@@ -15,7 +15,7 @@ export function ConversationGitBadges() {
   return (
     <div
       data-testid="conversation-git-badges"
-      className="hidden min-w-0 max-w-[280px] shrink items-center md:flex"
+      className="hidden min-w-0 max-w-[300px] shrink items-center gap-2 pl-2 pr-1.5 md:flex"
     >
       <GitControlBar />
     </div>

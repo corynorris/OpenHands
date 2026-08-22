@@ -212,8 +212,8 @@ export function GitControlBar() {
   if (!hasAnyContent) return null;
 
   return (
-    <div className="flex flex-row items-center">
-      <div className="flex flex-row gap-2.5 items-center overflow-x-auto flex-nowrap relative scrollbar-hide">
+    <div className="flex flex-row items-center min-w-0">
+      <div className="flex flex-row gap-2.5 items-center overflow-x-auto flex-nowrap relative scrollbar-hide min-w-0">
         {showRepoButton ? (
           <GitControlBarRepoButton
             selectedRepository={selectedRepository}
