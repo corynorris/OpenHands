@@ -1,6 +1,5 @@
 import { ACP_SETTINGS_KEYS } from "@openhands/typescript-client";
 import { ServerClient } from "@openhands/typescript-client/clients";
-import { SKILLS_CATALOG } from "@openhands/extensions/skills";
 import { DEFAULT_SETTINGS } from "#/services/settings";
 import { ExecutionStatus } from "#/types/agent-server/core";
 import { AgentKind, Settings, SettingsValue } from "#/types/settings";
@@ -694,58 +693,6 @@ function buildInitialMessage(
   };
 }
 
-/**
- * Shape of a bundled skill entry passed to the agent-server SDK via
- * `agent_context.skills`. Mirrors the SDK's `Skill` model fields that
- * the server uses for trigger matching, activation, and system-prompt
- * injection.
- */
-interface BundledSkill {
-  name: string;
-  content: string;
-  trigger: { type: "keyword"; keywords: string[] } | null;
-  source: string;
-  description: string | null;
-  is_agentskills_format: true;
-  license?: string;
-  compatibility?: string;
-}
-
-/**
- * Convert the bundled `SKILLS_CATALOG` entries into the SDK `Skill` JSON
- * shape so the agent-server can perform trigger matching, skill activation,
- * and system-prompt injection without cloning the extensions repo.
- *
- * The SDK discriminates triggers via `{ type: "keyword", keywords: [...] }`.
- * Skills with no triggers get `trigger: null` (always-active / on-demand).
- */
-function buildBundledSkills(): BundledSkill[] {
-  return SKILLS_CATALOG.map((entry) => {
-    const trigger: BundledSkill["trigger"] =
-      entry.triggers?.length > 0
-        ? { type: "keyword", keywords: entry.triggers }
-        : null;
-
-    // Use the absolute path to the skill's SKILL.md so the Python
-    // agent-server can resolve bundled resources (scripts/, references/).
-    // Falls back to "public" in library builds where the path isn't known.
-    const source = __EXTENSIONS_SKILLS_DIR__
-      ? `${__EXTENSIONS_SKILLS_DIR__}/${entry.name}/SKILL.md`
-      : "public";
-
-    return {
-      name: entry.name,
-      content: entry.content,
-      trigger,
-      source,
-      description: entry.description ?? null,
-      is_agentskills_format: true as const,
-      ...(entry.license ? { license: entry.license } : {}),
-      ...(entry.compatibility ? { compatibility: entry.compatibility } : {}),
-    };
-  });
-}
-
 function buildAgentContext(
   agentSettings: SettingsRecord,
   runtimeServicesInfo?: RuntimeServicesInfo | null,
@@ -755,28 +702,25 @@ function buildAgentContext(
     buildRuntimeServicesSystemSuffix(runtimeServicesInfo);
   const existingContext = toRecord(agentSettings.agent_context);
 
-  // Merge bundled public skills with any skills already present in the
+  // Apply disabled-skill filtering to any skills already present in the
   // agent context (e.g. user-defined skills set via the settings API).
   const existingSkills = Array.isArray(existingContext.skills)
     ? (existingContext.skills as SettingsRecord[])
     : [];
   const disabledSkillNames = new Set(disabledSkills);
-  const mergedSkills = [...existingSkills, ...buildBundledSkills()].filter(
+  const mergedSkills = existingSkills.filter(
     (skill) =>
       typeof skill.name !== "string" || !disabledSkillNames.has(skill.name),
   );
 
   return {
     ...existingContext,
-    // Public skills are bundled at build time from the @openhands/extensions
-    // npm package and passed directly in agent_context.skills. Setting
-    // load_public_skills to false tells the agent-server SDK to skip its own
-    // extensions-repo clone — the frontend is the sole source of public
-    // skills now.
-    //
-    // Migration: the former VITE_LOAD_PUBLIC_SKILLS env var was removed
-    // because bundled skills have no clone latency. Users who previously set
-    // VITE_LOAD_PUBLIC_SKILLS=false to avoid clone delays no longer need it.
+    // Public/bundled skills are intentionally not injected: the agent-server
+    // SDK is told to skip its own extensions-repo clone (load_public_skills
+    // false) and the frontend no longer bundles the @openhands/extensions
+    // catalog (built-ins removed — only user/project skills from
+    // .agents/skills load). This keeps the agent's context aligned with the
+    // UI, which lists only custom skills.
     skills: mergedSkills,
     load_public_skills: false,
     load_user_skills: true,
