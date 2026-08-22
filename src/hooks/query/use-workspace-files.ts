@@ -11,6 +11,11 @@ import { useActiveConversation } from "#/hooks/query/use-active-conversation";
 import { useOptionalConversationId } from "#/hooks/use-conversation-id";
 import { useRuntimeIsReady } from "#/hooks/use-runtime-is-ready";
 import { getGitPath } from "#/utils/get-git-path";
+import { useWorkspaceIgnoreStore } from "#/stores/workspace-ignore-store";
+import {
+  filterIgnoredPaths,
+  getFindPrunePatterns,
+} from "#/utils/workspace-ignore";
 
 // Cap at a generous bound. The tree renders lazily (only expanded folders
 // mount nodes), so a large flat path list is cheap; the cap only guards
@@ -41,10 +46,13 @@ const EXCLUDED_DIRS = [
 ];
 
 // Build a `find` invocation that lists files relative to the workspace root.
-function buildListCommand(): string {
-  const pruneExpr = EXCLUDED_DIRS.map((dir) => `-name '${dir}' -prune`).join(
-    " -o ",
-  );
+// User-configured ignore patterns that are plain directory names are appended
+// to the prune expression so ignored folders are never even walked.
+function buildListCommand(ignorePatterns: string[]): string {
+  const ignoredDirs = getFindPrunePatterns(ignorePatterns);
+  const pruneExpr = [...EXCLUDED_DIRS, ...ignoredDirs]
+    .map((dir) => `-name '${dir}' -prune`)
+    .join(" -o ");
   return `find . \\( ${pruneExpr} \\) -o -type f -print 2>/dev/null | sort | head -n ${MAX_FILES}`;
 }
 
@@ -67,6 +75,7 @@ function normalizePath(path: string): string {
 function useLocalWorkspaceFiles(enabled: boolean): WorkspaceFilesResult {
   const { data: conversation } = useActiveConversation();
   const runtimeIsReady = useRuntimeIsReady();
+  const ignorePatterns = useWorkspaceIgnoreStore((state) => state.patterns);
 
   const conversationId = conversation?.id;
   const conversationUrl = conversation?.conversation_url;
@@ -80,12 +89,13 @@ function useLocalWorkspaceFiles(enabled: boolean): WorkspaceFilesResult {
       conversationUrl,
       sessionApiKey,
       workingDir,
+      ignorePatterns,
     ],
     queryFn: async () => {
       const result = await AgentServerRuntimeService.executeCommand(
         conversationUrl,
         sessionApiKey,
-        buildListCommand(),
+        buildListCommand(ignorePatterns),
         workingDir,
         30,
       );
@@ -102,8 +112,12 @@ function useLocalWorkspaceFiles(enabled: boolean): WorkspaceFilesResult {
         .filter(Boolean)
         .map(normalizePath);
 
+      // Client-side filter catches basename-glob patterns and anything the
+      // find prune didn't (both are cheap here).
+      const filtered = filterIgnoredPaths(lines, ignorePatterns);
+
       // Defensive: keep results unique and bounded.
-      return Array.from(new Set(lines)).slice(0, MAX_FILES);
+      return Array.from(new Set(filtered)).slice(0, MAX_FILES);
     },
     enabled: enabled && runtimeIsReady && !!conversationId && !!workingDir,
     retry: false,
@@ -136,6 +150,7 @@ function useCloudWorkspaceFiles(enabled: boolean): WorkspaceFilesResult {
   const { conversationId } = useOptionalConversationId();
   const { data: conversation } = useActiveConversation();
   const runtimeIsReady = useRuntimeIsReady();
+  const ignorePatterns = useWorkspaceIgnoreStore((state) => state.patterns);
 
   const selectedRepository = conversation?.selected_repository;
   const workingDir = conversation?.workspace?.working_dir?.trim();
@@ -147,14 +162,20 @@ function useCloudWorkspaceFiles(enabled: boolean): WorkspaceFilesResult {
   const absolutePath = gitPath.startsWith("/") ? gitPath : `/${gitPath}`;
 
   const query = useQuery<string[]>({
-    queryKey: ["workspace-files-cloud", conversationId, absolutePath],
+    queryKey: [
+      "workspace-files-cloud",
+      conversationId,
+      absolutePath,
+      ignorePatterns,
+    ],
     queryFn: async () => {
       const files = await listCloudConversationFiles(
         conversationId!,
         absolutePath,
       );
       const normalized = files.map(normalizePath).filter(Boolean);
-      return Array.from(new Set(normalized)).slice(0, MAX_FILES);
+      const filtered = filterIgnoredPaths(normalized, ignorePatterns);
+      return Array.from(new Set(filtered)).slice(0, MAX_FILES);
     },
     enabled: enabled && runtimeIsReady && !!conversationId,
     retry: false,

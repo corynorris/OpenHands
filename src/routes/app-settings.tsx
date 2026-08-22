@@ -11,7 +11,7 @@ import { SettingsInput } from "#/components/features/settings/settings-input";
 import { I18nKey } from "#/i18n/declaration";
 import { LanguageInput } from "#/components/features/settings/app-settings/language-input";
 import { ThemeInput } from "#/components/features/settings/app-settings/theme-input";
-import { GettingStartedChecklistSwitch } from "#/components/features/settings/app-settings/getting-started-checklist-switch";
+import { IgnorePatternsInput } from "#/components/features/settings/app-settings/ignore-patterns-input";
 import {
   displayErrorToast,
   displaySuccessToast,
@@ -220,7 +220,7 @@ export function AppSettingsScreen() {
             {t(I18nKey.SETTINGS$SOUND_NOTIFICATIONS)}
           </SettingsSwitch>
 
-          <GettingStartedChecklistSwitch />
+          <IgnorePatternsInput />
 
           <div className="border-t border-[var(--oh-border)] pt-6 mt-2">
             <h3 className="text-lg font-medium mb-2">
