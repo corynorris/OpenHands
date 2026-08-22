@@ -1,7 +1,13 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { LayoutGroup } from "framer-motion";
-import { Gauge, Globe, ListTodo, SquareChevronRight } from "lucide-react";
+import {
+  Gauge,
+  GitPullRequest,
+  Globe,
+  ListTodo,
+  SquareChevronRight,
+} from "lucide-react";
 import { LuFileDiff } from "react-icons/lu";
 import DocumentIcon from "#/icons/document.svg?react";
 import DoubleCheckIcon from "#/icons/double-check.svg?react";
@@ -21,6 +27,7 @@ import { useActiveBackend } from "#/contexts/active-backend-context";
 import { useHandleBuildPlanClick } from "#/hooks/use-handle-build-plan-click";
 import { useAgentState } from "#/hooks/use-agent-state";
 import { AgentState } from "#/types/agent-state";
+import { useConversationPrimaryRepository } from "#/hooks/use-conversation-primary-repository";
 import { Typography } from "#/ui/typography";
 import { mobileTopBarIconClassName } from "#/utils/mobile-top-bar-icon-button-classes";
 
@@ -42,6 +49,8 @@ export function ConversationTabs({
 
   const { hasTaskList } = useTaskList();
   const { backend } = useActiveBackend();
+  const { isConnected: hasConnectedRepository } =
+    useConversationPrimaryRepository();
 
   const { handleBuildPlanClick } = useHandleBuildPlanClick();
   const { curAgentState } = useAgentState();
@@ -101,6 +110,21 @@ export function ConversationTabs({
       tooltipAriaLabel: t(I18nKey.DIFF_VIEWER$COMMITS),
       label: t(I18nKey.DIFF_VIEWER$COMMITS),
     },
+    // Pull-request review — only when a repository is connected to this
+    // conversation (the tab is backed by the provider REST API).
+    ...(hasConnectedRepository
+      ? [
+          {
+            tabValue: "pr-review" as const,
+            isActive: isTabActive("pr-review"),
+            icon: GitPullRequest,
+            onClick: () => selectTab("pr-review"),
+            tooltipContent: t(I18nKey.PR$TAB_LABEL),
+            tooltipAriaLabel: t(I18nKey.PR$TAB_LABEL),
+            label: t(I18nKey.PR$TAB_LABEL),
+          },
+        ]
+      : []),
     {
       tabValue: "planner",
       isActive: isTabActive("planner"),

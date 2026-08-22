@@ -74,7 +74,9 @@ export function FileSwitcher() {
     const lowerQuery = query.trim().toLocaleLowerCase();
 
     if (!lowerQuery) {
-      return [...paths].sort((a, b) => a.localeCompare(b)).slice(0, MAX_RESULTS);
+      return [...paths]
+        .sort((a, b) => a.localeCompare(b))
+        .slice(0, MAX_RESULTS);
     }
 
     // Filename-bonus ordering: a match in the basename ranks above a match
@@ -246,7 +248,12 @@ export function FileSwitcher() {
                 const isActive = index === activeIndex;
                 const fileName = path.split("/").pop() || path;
                 return (
-                  <li key={path} role="option" id={getOptionId(index)}>
+                  <li
+                    key={path}
+                    role="option"
+                    id={getOptionId(index)}
+                    aria-selected={isActive}
+                  >
                     <button
                       type="button"
                       onMouseEnter={() => setActiveIndex(index)}

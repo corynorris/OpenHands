@@ -30,6 +30,17 @@ vi.mock("#/hooks/use-is-archived-conversation", () => ({
   useIsArchivedConversation: () => false,
 }));
 
+// The PR-review tab entry is gated on a connected repository; tests default
+// to no repository so the menu renders the classic tab set.
+vi.mock("#/hooks/use-conversation-primary-repository", () => ({
+  useConversationPrimaryRepository: () => ({
+    repository: null,
+    provider: null,
+    branch: null,
+    isConnected: false,
+  }),
+}));
+
 function seedActiveBackend(backend: Backend): void {
   localStorage.setItem(BACKENDS_STORAGE_KEY, JSON.stringify([backend]));
   localStorage.setItem(

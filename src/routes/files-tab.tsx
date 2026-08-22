@@ -220,8 +220,8 @@ function FilesTab() {
                             handleSelectFile(filteredPaths[0]);
                           }
                         }}
-                        placeholder="Search files…"
-                        aria-label="Search files"
+                        placeholder={t(I18nKey.FILES$SEARCH_PLACEHOLDER)}
+                        aria-label={t(I18nKey.FILES$SEARCH_LABEL)}
                         data-testid="files-tab-search"
                         className="h-8 w-full rounded-md border border-[var(--oh-border-input)] bg-[var(--oh-bg-input)] pl-8 pr-2 text-sm text-white outline-none placeholder:text-[var(--oh-text-dim)] focus:border-[var(--oh-focus)]"
                       />

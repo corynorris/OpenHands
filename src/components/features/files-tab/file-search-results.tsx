@@ -1,5 +1,7 @@
 import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 
+import { I18nKey } from "#/i18n/declaration";
 import { FileTypeIcon } from "./file-type-icon";
 
 const MAX_RESULTS = 200;
@@ -18,12 +20,13 @@ export function FileSearchResults({
   paths,
   onSelectFile,
 }: FileSearchResultsProps) {
+  const { t } = useTranslation("openhands");
   const visible = useMemo(() => paths.slice(0, MAX_RESULTS), [paths]);
 
   if (paths.length === 0) {
     return (
       <div className="px-3 py-4 text-sm text-[var(--oh-muted)]">
-        No matching files.
+        {t(I18nKey.FILES$SEARCH_NO_MATCHES)}
       </div>
     );
   }
@@ -32,8 +35,10 @@ export function FileSearchResults({
     <div className="py-1">
       {paths.length > MAX_RESULTS && (
         <div className="px-3 pb-1 text-xs text-[var(--oh-muted)]">
-          {paths.length} matches — showing first {MAX_RESULTS}. Refine your
-          query.
+          {t(I18nKey.FILES$SEARCH_TRUNCATED, {
+            total: paths.length,
+            shown: MAX_RESULTS,
+          })}
         </div>
       )}
       <ul>

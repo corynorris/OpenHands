@@ -10,7 +10,13 @@ import {
   type ConversationTab,
 } from "#/stores/conversation-store";
 import { I18nKey } from "#/i18n/declaration";
-import { Gauge, Globe, ListTodo, SquareChevronRight } from "lucide-react";
+import {
+  Gauge,
+  GitPullRequest,
+  Globe,
+  ListTodo,
+  SquareChevronRight,
+} from "lucide-react";
 import { LuFileDiff } from "react-icons/lu";
 import DocumentIcon from "#/icons/document.svg?react";
 import PillIcon from "#/icons/pill.svg?react";
@@ -20,6 +26,7 @@ import { useTaskList } from "#/hooks/use-task-list";
 import { useActiveBackend } from "#/contexts/active-backend-context";
 import { useSelectConversationTab } from "#/hooks/use-select-conversation-tab";
 import { useIsArchivedConversation } from "#/hooks/use-is-archived-conversation";
+import { useConversationPrimaryRepository } from "#/hooks/use-conversation-primary-repository";
 import { ArchivedDisabledTooltip } from "../../context-menu/archived-disabled-tooltip";
 import { cn } from "#/utils/utils";
 import {
@@ -89,6 +96,8 @@ export function ConversationTabsContextMenu({
   const { hasTaskList } = useTaskList();
   const { backend } = useActiveBackend();
   const isArchivedConversation = useIsArchivedConversation();
+  const { isConnected: hasConnectedRepository } =
+    useConversationPrimaryRepository();
 
   const tabConfig = [
     {
@@ -102,6 +111,15 @@ export function ConversationTabsContextMenu({
       icon: LuFileDiff,
       i18nKey: I18nKey.DIFF_VIEWER$COMMITS,
     },
+    ...(hasConnectedRepository
+      ? [
+          {
+            tab: "pr-review" as const,
+            icon: GitPullRequest,
+            i18nKey: I18nKey.PR$TAB_LABEL,
+          },
+        ]
+      : []),
     {
       tab: "terminal",
       icon: SquareChevronRight,
