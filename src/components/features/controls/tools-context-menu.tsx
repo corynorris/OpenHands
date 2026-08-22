@@ -15,11 +15,9 @@ import PuzzleIcon from "#/icons/u-puzzle-piece.svg?react";
 import FishingHookIcon from "#/icons/fishing-hook.svg?react";
 import ToolsIcon from "#/icons/u-tools.svg?react";
 import RobotIcon from "#/icons/u-robot.svg?react";
-import SettingsIcon from "#/icons/settings.svg?react";
 import CarretRightFillIcon from "#/icons/carret-right-fill.svg?react";
 import { ToolsContextMenuIconText } from "./tools-context-menu-icon-text";
 import { GitToolsSubmenu } from "./git-tools-submenu";
-import { MacrosSubmenu } from "./macros-submenu";
 import { ChatInputProfileMenuContent } from "#/components/features/chat/components/chat-input-profile-picker";
 import { ArchivedDisabledTooltip } from "../context-menu/archived-disabled-tooltip";
 import { useIsArchivedConversation } from "#/hooks/use-is-archived-conversation";
@@ -66,14 +64,14 @@ export function ToolsContextMenu({
   const isArchivedConversation = useIsArchivedConversation();
 
   const [activeSubmenu, setActiveSubmenu] = useState<
-    "git" | "macros" | "agent-profile" | null
+    "git" | "agent-profile" | null
   >(null);
 
   const hasRepository = !!conversation?.selected_repository;
   const providersAreSet = providers.length > 0;
   const showGitTools = hasRepository && providersAreSet;
 
-  const handleSubmenuClick = (submenu: "git" | "macros" | "agent-profile") => {
+  const handleSubmenuClick = (submenu: "git" | "agent-profile") => {
     if (isArchivedConversation) {
       return;
     }
@@ -169,35 +167,8 @@ export function ToolsContextMenu({
         </div>
       )}
 
-      {/* Macros */}
-      <div className="relative group/macros">
-        <ArchivedDisabledTooltip isDisabled={isArchivedConversation}>
-          <ContextMenuListItem
-            testId="macros-button"
-            onClick={() => handleSubmenuClick("macros")}
-            isDisabled={isArchivedConversation}
-          >
-            <ToolsContextMenuIconText
-              icon={<SettingsIcon width={16} height={16} />}
-              text={t(I18nKey.COMMON$MACROS)}
-              rightIcon={<CarretRightFillIcon width={10} height={10} />}
-            />
-          </ContextMenuListItem>
-        </ArchivedDisabledTooltip>
-        {!isArchivedConversation && (
-          <div
-            className={cn(
-              "absolute left-full top-[-4px] z-60 opacity-0 invisible pointer-events-none transition-all duration-200 ml-[1px]",
-              "group-hover/macros:opacity-100 group-hover/macros:visible group-hover/macros:pointer-events-auto",
-              "hover:opacity-100 hover:visible hover:pointer-events-auto",
-              activeSubmenu === "macros" &&
-                "opacity-100 visible pointer-events-auto",
-            )}
-          >
-            <MacrosSubmenu onClose={handleClose} />
-          </div>
-        )}
-      </div>
+      {/* Macros submenu removed (repo-suggestion presets) — the repo
+          suggestion chips in the chat input still offer those prompts. */}
 
       {shouldShowAgentTools && <Divider inset="menu" />}
 

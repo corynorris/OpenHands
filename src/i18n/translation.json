@@ -24581,23 +24581,6 @@
     "uk": "Мовна модель (LLM)",
     "ca": "Model de llenguatge (LLM)"
   },
-  "COMMON$MACROS": {
-    "en": "Macros",
-    "ja": "マクロ",
-    "zh-CN": "宏",
-    "zh-TW": "巨集",
-    "ko-KR": "매크로",
-    "no": "Makroer",
-    "it": "Macro",
-    "pt": "Macros",
-    "es": "Macros",
-    "ar": "الماكرو",
-    "fr": "Macros",
-    "tr": "Makrolar",
-    "de": "Makros",
-    "uk": "Макроси",
-    "ca": "Macros"
-  },
   "COMMON$MODEL_CONTEXT_PROTOCOL_MCP": {
     "en": "Model Context Protocol (MCP)",
     "ja": "モデルコンテキストプロトコル（MCP）",
