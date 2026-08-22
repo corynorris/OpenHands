@@ -1,7 +1,8 @@
 export type ColorThemeKey =
   | "openhands-deepsea"
   | "openhands-neutral"
-  | "openhands-neo";
+  | "openhands-neo"
+  | "openhands-light";
 
 export interface ColorThemeDefinition {
   label: string;
@@ -18,6 +19,13 @@ export interface ColorThemeDefinition {
   heroui: Record<string, string>;
   /** Overrides for --oh-* semantic tokens such as brand / button colors. */
   tokens?: Record<string, string>;
+  /**
+   * Native color-scheme for the page (drives form controls / scrollbars).
+   * The inner AgentServerUIRoot wrapper keeps `data-theme="dark"` regardless
+   * (heroui vars are overridden by the injected sheet either way), so this
+   * only flips `color-scheme` and is otherwise cosmetic.
+   */
+  scheme?: "light" | "dark";
 }
 
 // HSL channel strings for the neutral grey palette (H=0, S=0%, L=hex/255*100)
@@ -88,6 +96,93 @@ const NEUTRAL_HEROUI = {
   "--heroui-default-900": NEUTRAL_HSL[300],
   "--heroui-default-foreground": NEUTRAL_HSL[50],
   "--heroui-default": NEUTRAL_HSL[800],
+};
+
+// HSL channel strings for the light theme (same neutral grey palette, stops
+// flipped so dark text lands on light surfaces).
+// prettier-ignore
+const LIGHT_HSL = {
+  50:  "0 0% 6.27%",  // #101010 — darkest text
+  100: "0 0% 6.27%",  // #101010
+  200: "0 0% 9.41%",  // #181818
+  300: "0 0% 12.55%", // #202020
+  400: "0 0% 15.69%", // #282828
+  500: "0 0% 19.22%", // #313131
+  600: "0 0% 25.1%",  // #404040
+  700: "0 0% 33.73%", // #565656
+  800: "0 0% 45.1%",  // #737373
+  850: "0 0% 59.22%", // #979797
+  900: "0 0% 96.86%", // #F7F7F7 — raised surface
+  925: "0 0% 98.04%", // #FAFAFA — surface
+  950: "0 0% 100%",   // #FFFFFF — app shell base
+  975: "0 0% 94.12%", // #F0F0F0 — deepest / inset surface
+};
+
+const LIGHT_SCALE = {
+  "--cool-grey-50": "#101010",
+  "--cool-grey-100": "#101010",
+  "--cool-grey-200": "#181818",
+  "--cool-grey-300": "#202020",
+  "--cool-grey-400": "#282828",
+  "--cool-grey-500": "#313131",
+  "--cool-grey-600": "#404040",
+  "--cool-grey-700": "#565656",
+  "--cool-grey-800": "#737373",
+  "--cool-grey-850": "#979797",
+  "--cool-grey-900": "#F7F7F7",
+  "--cool-grey-925": "#FAFAFA",
+  "--cool-grey-950": "#FFFFFF",
+  "--cool-grey-975": "#F0F0F0",
+  // The --oh-* tokens below are set *inline* on the AgentServerUIRoot (inline
+  // style beats any stylesheet), so they need !important to override the
+  // flipped scale values with properly light-themed surfaces/borders.
+  "--oh-focus": "#202020",
+  "--oh-border": "#BFC6CF",
+  "--oh-border-input": "#A9B1BB",
+  "--oh-border-subtle": "#D7DCE2",
+  "--oh-interactive-hover": "#D9DEE3",
+  "--oh-interactive-active": "#C9D1D9",
+  "--oh-interactive-selected": "#B6C2CF",
+  "--oh-default": "#DCE0E5",
+  "--oh-separator": "rgba(55, 65, 81, 0.18)",
+  "--oh-scrollbar": "rgba(55, 65, 81, 0.3)",
+  "--oh-scrollbar-hover": "rgba(55, 65, 81, 0.5)",
+};
+
+const LIGHT_HEROUI = {
+  "--heroui-background": LIGHT_HSL[950],
+  "--heroui-background-foreground": LIGHT_HSL[300],
+  "--heroui-foreground-50": LIGHT_HSL[50],
+  "--heroui-foreground-100": LIGHT_HSL[100],
+  "--heroui-foreground-200": LIGHT_HSL[200],
+  "--heroui-foreground-300": LIGHT_HSL[300],
+  "--heroui-foreground-400": LIGHT_HSL[400],
+  "--heroui-foreground-500": LIGHT_HSL[500],
+  "--heroui-foreground-600": LIGHT_HSL[600],
+  "--heroui-foreground-700": LIGHT_HSL[700],
+  "--heroui-foreground-800": LIGHT_HSL[800],
+  "--heroui-foreground-900": LIGHT_HSL[850],
+  "--heroui-foreground": LIGHT_HSL[300],
+  "--heroui-content1": LIGHT_HSL[950],
+  "--heroui-content1-foreground": LIGHT_HSL[200],
+  "--heroui-content2": LIGHT_HSL[900],
+  "--heroui-content2-foreground": LIGHT_HSL[300],
+  "--heroui-content3": "0 0% 92.55%",
+  "--heroui-content3-foreground": LIGHT_HSL[400],
+  "--heroui-content4": "0 0% 86.27%",
+  "--heroui-content4-foreground": LIGHT_HSL[500],
+  "--heroui-default-50": LIGHT_HSL[925],
+  "--heroui-default-100": LIGHT_HSL[900],
+  "--heroui-default-200": LIGHT_HSL[850],
+  "--heroui-default-300": LIGHT_HSL[700],
+  "--heroui-default-400": LIGHT_HSL[600],
+  "--heroui-default-500": LIGHT_HSL[500],
+  "--heroui-default-600": LIGHT_HSL[400],
+  "--heroui-default-700": LIGHT_HSL[300],
+  "--heroui-default-800": LIGHT_HSL[200],
+  "--heroui-default-900": LIGHT_HSL[100],
+  "--heroui-default-foreground": LIGHT_HSL[100],
+  "--heroui-default": LIGHT_HSL[700],
 };
 
 import { AGENT_SERVER_UI_THEMEABLE_BRAND_VARIABLES } from "#/styles/agent-server-ui-style-scope";
@@ -180,6 +275,18 @@ export const COLOR_THEMES: Record<ColorThemeKey, ColorThemeDefinition> = {
     heroui: NEUTRAL_HEROUI,
     tokens: NEO_WHITE_BUTTON_TOKENS,
   },
+
+  "openhands-light": {
+    label: "OpenHands-Light",
+    // Flipped neutral scale: dark text on white/light-grey surfaces. The
+    // interactive/border/focus tokens that don't survive a pure luminance
+    // flip (borders would end up near-black) are overridden explicitly —
+    // applyColorTheme emits those with !important because they're set inline
+    // on the AgentServerUIRoot and would otherwise lose to the inline style.
+    scale: LIGHT_SCALE,
+    heroui: LIGHT_HEROUI,
+    scheme: "light",
+  },
 };
 
 export const DEFAULT_COLOR_THEME: ColorThemeKey = "openhands-neutral";
@@ -239,10 +346,17 @@ const THEME_STYLE_TAG_ID = "oh-color-theme-override";
  */
 export function applyColorTheme(key: ColorThemeKey): void {
   if (typeof document === "undefined") return;
-  const { scale, heroui, tokens = {} } = COLOR_THEMES[key];
+  const { scale, heroui, tokens = {}, scheme } = COLOR_THEMES[key];
 
+  // --oh-* entries in a theme's scale override tokens that are set *inline*
+  // on the AgentServerUIRoot (inline styles beat stylesheets), so they must
+  // be emitted with !important to win. --cool-grey-* entries resolve through
+  // the vars and need no !important.
   const scaleDecls = Object.entries(scale)
-    .map(([p, v]) => `  ${p}: ${v};`)
+    .map(([p, v]) => {
+      const important = p.startsWith("--oh-") ? " !important" : "";
+      return `  ${p}: ${v}${important};`;
+    })
     .join("\n");
 
   const herouiDecls = Object.entries(heroui)
@@ -276,6 +390,10 @@ export function applyColorTheme(key: ColorThemeKey): void {
   // Re-append even when the tag already exists (appendChild relocates a
   // connected node) so the override also stays after any re-inserted <link>.
   document.head.appendChild(styleEl);
+
+  // Flip native color-scheme so form controls / scrollbars match the theme.
+  document.documentElement.style.colorScheme =
+    scheme === "light" ? "light" : "dark";
 
   syncColorThemeTokensOnScopeRoots(tokens);
 }

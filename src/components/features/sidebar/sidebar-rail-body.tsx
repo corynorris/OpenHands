@@ -23,6 +23,7 @@ import { BackendSelector } from "#/components/features/backends/backend-selector
 import { BackendStatusDot } from "#/components/features/backends/backend-status-dot";
 import { CommandMenuTrigger } from "#/components/features/command-menu/command-menu-trigger";
 import { AgentCanvasVersionTile } from "#/components/features/settings/agent-canvas-version-tile";
+import { SidebarThemeToggle } from "./sidebar-theme-toggle";
 import { SidebarConversationList } from "./sidebar-conversation-list";
 import { SidebarOnboardingChecklist } from "./sidebar-onboarding-checklist";
 import AutomationsIcon from "#/icons/automations.svg?react";
@@ -227,6 +228,7 @@ export function SidebarRailBody({
             "mt-auto pb-2 cursor-pointer",
           )}
         >
+          <SidebarThemeToggle collapsed />
           <StyledTooltip
             content={t(I18nKey.SIDEBAR$SETTINGS)}
             placement="right"
@@ -324,6 +326,7 @@ export function SidebarRailBody({
             )}
           >
             <AgentCanvasVersionTile hideWhenUpToDate />
+            <SidebarThemeToggle collapsed={false} />
             <BackendSelector sidebarCollapsed={collapsed} openUpward />
           </div>
         </>
