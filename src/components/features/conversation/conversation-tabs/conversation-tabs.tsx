@@ -25,7 +25,7 @@ import { useSelectConversationTab } from "#/hooks/use-select-conversation-tab";
 import { useTaskList } from "#/hooks/use-task-list";
 import { useActiveBackend } from "#/contexts/active-backend-context";
 import { useHandleBuildPlanClick } from "#/hooks/use-handle-build-plan-click";
-import { useAgentState } from "#/hooks/use-agent-state";
+import { useAgentState, usePlanningAgentState } from "#/hooks/use-agent-state";
 import { AgentState } from "#/types/agent-state";
 import { Typography } from "#/ui/typography";
 import { mobileTopBarIconClassName } from "#/utils/mobile-top-bar-icon-button-classes";
@@ -51,6 +51,7 @@ export function ConversationTabs({
 
   const { handleBuildPlanClick } = useHandleBuildPlanClick();
   const { curAgentState } = useAgentState();
+  const { isPlanningAgentRunning } = usePlanningAgentState();
 
   const {
     selectTab,
@@ -172,10 +173,8 @@ export function ConversationTabs({
 
   // Pinned tabs always show in the bar. Unpinned tabs stay hidden unless the
   // user has that tab selected — then it appears while active so the bar
-  // matches the open panel. Hide Planner on local backends — the planning
-  // agent isn't supported locally.
+  // matches the open panel.
   const visibleTabs = tabs.filter((tab) => {
-    if (tab.tabValue === "planner" && backend.kind !== "cloud") return false;
     if (!persistedState.unpinnedTabs.includes(tab.tabValue)) return true;
     return selectedTab === tab.tabValue;
   });
@@ -184,7 +183,8 @@ export function ConversationTabs({
 
   const isAgentRunning =
     curAgentState === AgentState.RUNNING ||
-    curAgentState === AgentState.LOADING;
+    curAgentState === AgentState.LOADING ||
+    isPlanningAgentRunning;
   const isBuildDisabled = isAgentRunning || !planContent;
 
   const tabsRowInnerRef = useRef<HTMLDivElement>(null);
@@ -250,6 +250,12 @@ export function ConversationTabs({
     if (typeof ResizeObserver === "undefined") return undefined;
     const ro = new ResizeObserver(measure);
     ro.observe(rowInner);
+    // The editor button's presence is resolved asynchronously (the hook probes
+    // /api/vscode/status), and it sits inside an `ml-auto shrink-0` wrapper, so
+    // it appearing or disappearing does not change `rowInner`'s own box and
+    // would not otherwise re-measure. Its width is folded into the fit
+    // calculation above, so a stale value permanently costs an inline tab.
+    ro.observe(vscodeEl);
     return () => ro.disconnect();
   }, [
     unpinnedSignature,
@@ -372,23 +378,17 @@ export function ConversationTabs({
               </div>
             </div>
           </div>
-          {/* Keep the ref'd wrapper mounted on local backends too — the
-              overflow measurement effect above bails if it's missing. */}
-          <div
-            ref={vscodeButtonRef}
-            className={cn(
-              "ml-auto shrink-0",
-              backend.kind === "cloud" && "pr-1",
-            )}
-          >
-            {backend.kind === "cloud" && <DrawerVSCodeLink />}
+          {/* The ref'd wrapper must stay mounted — the overflow measurement
+              effect above bails if it's missing. */}
+          <div ref={vscodeButtonRef} className="ml-auto shrink-0 pr-1">
+            <DrawerVSCodeLink />
           </div>
         </div>
       </div>
       {isTabActive("planner") && (
         <div
           className={cn(
-            "flex h-10 min-h-10 shrink-0 items-center border-t border-[var(--oh-border)] pl-[10px] pr-1",
+            "flex h-10 min-h-10 shrink-0 items-center border-t border-border pl-2.5 pr-1",
           )}
         >
           <button
@@ -396,14 +396,14 @@ export function ConversationTabs({
             onClick={handleBuildPlanClick}
             disabled={isBuildDisabled}
             className={cn(
-              "flex h-5 min-w-17 items-center justify-center rounded bg-white px-2 transition-opacity",
+              "flex h-5 min-w-17 items-center justify-center rounded bg-contrast px-2 transition-opacity",
               isBuildDisabled
                 ? "cursor-not-allowed opacity-50"
                 : "cursor-pointer hover:opacity-90",
             )}
             data-testid="planner-tab-build-button"
           >
-            <Typography.Text className="text-[11px] font-normal leading-5 text-black">
+            <Typography.Text className="text-[11px] font-normal leading-5 text-contrast-foreground">
               {/* eslint-disable-next-line i18next/no-literal-string */}
               {t(I18nKey.COMMON$BUILD)} ⌘↩
             </Typography.Text>

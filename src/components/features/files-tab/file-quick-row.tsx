@@ -40,7 +40,7 @@ export function FileQuickRow({
 
   return (
     <div
-      className="flex h-[34px] shrink-0 items-stretch gap-1.5 overflow-y-hidden border-b border-[var(--oh-border)] px-2"
+      className="flex h-8.5 shrink-0 items-stretch gap-1.5 overflow-y-hidden border-b border-border px-2"
       data-testid="file-quick-row"
     >
       <button
@@ -60,8 +60,8 @@ export function FileQuickRow({
         )}
         className={cn(
           "shrink-0 self-center inline-flex items-center justify-center w-6 h-6 rounded-md cursor-pointer",
-          "text-[var(--oh-text-tertiary)] hover:bg-tertiary",
-          isTreeVisible && "bg-[var(--oh-surface-raised)]",
+          "text-text-tertiary hover:bg-tertiary",
+          isTreeVisible && "bg-surface-raised",
         )}
       >
         <ListTree className="w-3 h-3" aria-hidden strokeWidth={2} />
@@ -85,12 +85,12 @@ export function FileQuickRow({
                 className={cn(
                   "group/file-tab relative flex shrink-0 items-stretch",
                   // Vertical edges on every tab (left on the first, right on all).
-                  "border-r border-r-[var(--oh-border)]",
-                  index === 0 && "border-l border-l-[var(--oh-border)]",
+                  "border-r border-r-border",
+                  index === 0 && "border-l border-l-border",
                   "border-b-2 -mb-px transition-colors",
                   isSelected
-                    ? "border-b-[var(--oh-foreground)] text-[var(--oh-foreground)]"
-                    : "border-b-transparent text-[var(--oh-muted)] hover:text-[var(--oh-foreground)] hover:border-b-[var(--oh-foreground)]/25",
+                    ? "border-b-contrast text-contrast"
+                    : "border-b-transparent text-muted hover:text-contrast hover:border-b-contrast/25",
                 )}
               >
                 <button
@@ -109,7 +109,7 @@ export function FileQuickRow({
                   }}
                   title={path}
                   data-testid={`file-quick-row-item-${path}`}
-                  className="flex min-w-0 max-w-[160px] items-center gap-1 pl-2.5 pr-1 text-xs cursor-pointer text-inherit"
+                  className="flex min-w-0 max-w-40 items-center gap-1 pl-2.5 pr-1 text-xs cursor-pointer text-inherit"
                 >
                   <FileTypeIcon path={path} className="size-3" />
                   <span className="truncate">{fileName}</span>
@@ -121,7 +121,7 @@ export function FileQuickRow({
                   title={t(I18nKey.FILES$CLOSE_TAB, { path })}
                   className={cn(
                     "inline-flex items-center justify-center size-5 self-center mr-1 rounded-sm shrink-0 cursor-pointer",
-                    "text-inherit hover:bg-white/10",
+                    "text-inherit hover:bg-contrast/10",
                     // Always visible on small / touch-first viewports; hover to
                     // reveal on fine pointers (desktop).
                     "opacity-100 transition-opacity",

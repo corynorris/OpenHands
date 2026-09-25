@@ -1,6 +1,6 @@
 import { Moon, Sun } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { useColorTheme } from "#/hooks/use-color-theme";
+import { useColorThemeSettings } from "#/hooks/use-color-theme-settings";
 import { I18nKey } from "#/i18n/declaration";
 import { cn } from "#/utils/utils";
 import { StyledTooltip } from "#/components/shared/buttons/styled-tooltip";
@@ -18,7 +18,7 @@ import {
  * via localStorage (same storage the Settings → App → Theme dropdown uses).
  */
 export function SidebarThemeToggle({ collapsed }: { collapsed: boolean }) {
-  const { isLight, toggleLightDark } = useColorTheme();
+  const { isLight, toggleLightDark } = useColorThemeSettings();
   const { t } = useTranslation("openhands");
   const label = isLight
     ? t(I18nKey.SIDEBAR$SWITCH_TO_DARK)

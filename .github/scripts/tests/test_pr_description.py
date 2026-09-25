@@ -8,6 +8,9 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from check_pr_description import (
+    extract_human_note,
+    extract_sections,
+    validate_pr_body,
     is_frontend_file,
     touches_frontend,
     extract_linked_issue_numbers,
@@ -16,8 +19,56 @@ from check_pr_description import (
     validate_bug_fix_evidence,
     BUG_LABEL,
     ENHANCEMENT_LABEL,
-    READY_FOR_DEV_LABEL,
 )
+
+
+def test_extract_sections_ignores_heading_inside_fence():
+    body = """## Summary
+The template says:
+
+```markdown
+## How to Test
+Describe testing here
+```
+"""
+    assert set(extract_sections(body)) == {"Summary"}
+
+
+def test_section_opening_with_a_fence_keeps_its_body():
+    """Same masked-whitespace trap as the issue checker: `## Test Plan` then a fence."""
+    body = """## Summary
+Fixes the thing.
+
+## How to Test
+```bash
+pytest .github/scripts/tests/
+```
+
+## Issue Number
+Fixes #16553
+"""
+    sections = extract_sections(body)
+    assert "pytest .github/scripts/tests/" in sections["How to Test"]
+    assert set(sections) == {"Summary", "How to Test", "Issue Number"}
+
+
+def test_fenced_heading_does_not_truncate_how_to_test():
+    body = """## How to Test
+Run the focused checker tests.
+
+~~~text
+## Example output
+all tests passed
+~~~
+
+Then run the reproduction script.
+
+## Issue Number
+Fixes #16553
+"""
+    sections = extract_sections(body)
+    assert "Example output" not in sections
+    assert "Then run the reproduction script." in sections["How to Test"]
 
 # ---------------------------------------------------------------------------
 # extract_linked_issue_numbers
@@ -244,3 +295,68 @@ def test_docs_only_change_does_not_require_frontend_evidence():
 
 def test_mixed_change_still_requires_frontend_evidence():
     assert touches_frontend(["__tests__/router.md", "src/app.tsx"])
+
+
+# ---------------------------------------------------------------------------
+# HUMAN: / AGENT: markers
+# ---------------------------------------------------------------------------
+
+
+FENCED_TEMPLATE_BODY = """HUMAN:
+
+Quoting the template I was asked to fill in:
+
+```
+HUMAN:
+I really did test this thoroughly by hand, twice, on my own machine.
+AGENT:
+```
+"""
+
+
+def test_human_note_opening_with_a_fence_survives():
+    """`HUMAN:` then a fence hits the same masked-whitespace trap as the headings.
+
+    The markers have no capture group to absorb a CRLF's `\\r`, so the pattern
+    matches it explicitly and both line endings are pinned here.
+    """
+    body = """## Summary
+Fixes it.
+
+HUMAN:
+```
+I ran this by hand on my laptop and watched it reproduce twice.
+```
+
+AGENT:
+did the work
+"""
+    for name, text in (("lf", body), ("crlf", body.replace("\n", "\r\n"))):
+        note = extract_human_note(text)
+        assert "reproduce twice" in note, name
+
+
+def test_fenced_human_marker_does_not_supply_the_note():
+    assert extract_human_note(FENCED_TEMPLATE_BODY) == ""
+
+
+def test_fenced_agent_marker_does_not_satisfy_validation():
+    errors = validate_pr_body(FENCED_TEMPLATE_BODY)
+    assert "Add a short human-written note between `HUMAN:` and `AGENT:`." in errors
+    assert "Keep the `AGENT:` marker from the PR template." in errors
+
+
+def test_real_markers_still_supply_the_note():
+    body = """HUMAN:
+
+I ran the checker suite and reproduced the fenced-heading case by hand.
+
+AGENT:
+
+## Why
+x
+"""
+    assert "reproduced the fenced-heading case" in extract_human_note(body)
+    errors = validate_pr_body(body)
+    assert "Keep the `AGENT:` marker from the PR template." not in errors
+    assert "Add a short human-written note between `HUMAN:` and `AGENT:`." not in errors

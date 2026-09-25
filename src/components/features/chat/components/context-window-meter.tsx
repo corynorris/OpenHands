@@ -19,9 +19,8 @@ import {
 import { getContextFillTone } from "#/components/features/conversation/usage-panel/context-meter";
 import {
   ContextWindowRing,
-  useContextWindowTrackColor,
+  CONTEXT_WINDOW_TRACK_COLOR,
 } from "./context-window-ring";
-import { PeakHoursBadge } from "./peak-hours-badge";
 
 const TONE_BAR_CLASS = {
   neutral: "bg-foreground",
@@ -30,14 +29,13 @@ const TONE_BAR_CLASS = {
 } as const;
 
 const TONE_LABEL_CLASS = {
-  neutral: "text-[var(--oh-muted)]",
+  neutral: "text-muted",
   warning: "text-amber-500",
   danger: "text-red-500",
 } as const;
 
 export function ContextWindowMeter() {
   const { t } = useTranslation("openhands");
-  const trackColor = useContextWindowTrackColor();
   const usage = useContextWindowUsage();
   const { navigateToTab } = useSelectConversationTab();
   const [isPopoverOpen, setIsPopoverOpen] = React.useState(false);
@@ -98,22 +96,17 @@ export function ContextWindowMeter() {
           ref={popoverRef}
           data-testid="context-window-meter-popover"
           className={cn(
-            "absolute bottom-full right-0 z-[60] mb-2 w-[280px]",
-            "flex flex-col gap-0.5 rounded-md border border-[var(--oh-border-subtle)] bg-tertiary px-1 py-1 shadow-lg",
+            "absolute bottom-full right-0 z-[60] mb-2 w-70",
+            "flex flex-col gap-0.5 rounded-md border border-border-subtle bg-tertiary px-1 py-1 shadow-lg",
           )}
         >
           <div className="flex flex-col gap-2 px-2 py-1.5">
             <div className="flex items-center justify-between gap-2 text-sm">
-              <span className="shrink-0 font-semibold text-[var(--oh-foreground)]">
+              <span className="font-semibold text-foreground">
                 {t(I18nKey.CONVERSATION$CONTEXT_WINDOW)}
               </span>
-              <span className="flex min-w-0 items-center gap-2">
-                <PeakHoursBadge />
-                <span
-                  className={cn("truncate text-xs", TONE_LABEL_CLASS[tone])}
-                >
-                  {usagePercentLabel}
-                </span>
+              <span className={cn("shrink-0 text-xs", TONE_LABEL_CLASS[tone])}>
+                {usagePercentLabel}
               </span>
             </div>
 
@@ -121,7 +114,7 @@ export function ContextWindowMeter() {
               type="button"
               data-testid="context-window-meter-bar-button"
               className="relative h-1.5 w-full rounded-full cursor-pointer"
-              style={{ backgroundColor: trackColor }}
+              style={{ backgroundColor: CONTEXT_WINDOW_TRACK_COLOR }}
               aria-label={t(I18nKey.COMMON$USAGE)}
               onClick={(event) => {
                 event.preventDefault();
@@ -147,7 +140,7 @@ export function ContextWindowMeter() {
                 aria-label={t(I18nKey.CONVERSATION$COMPACT_CONTEXT)}
                 className={cn(
                   "inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs",
-                  "text-[var(--oh-muted)] hover:bg-[var(--oh-interactive-hover)] hover:text-[var(--oh-foreground)]",
+                  "text-muted hover:bg-interactive-hover hover:text-foreground",
                   "transition-colors disabled:cursor-not-allowed disabled:opacity-50",
                 )}
                 onClick={(event) => {
@@ -163,9 +156,7 @@ export function ContextWindowMeter() {
                 )}
                 <span>{t(I18nKey.CONVERSATION$COMPACT_CONTEXT)}</span>
               </button>
-              <span className="text-xs text-[var(--oh-muted)]">
-                {usageTokenSummary}
-              </span>
+              <span className="text-xs text-muted">{usageTokenSummary}</span>
             </div>
           </div>
 

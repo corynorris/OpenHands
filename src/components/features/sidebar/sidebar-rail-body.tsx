@@ -6,13 +6,20 @@ import {
   Plus,
   Server,
   Settings,
+  PanelsTopLeft,
 } from "lucide-react";
+import { OpenHandsLogoButton } from "#/components/shared/buttons/openhands-logo-button";
 import { NavigationLink } from "#/components/shared/navigation-link";
+import { getLockedCloudHost } from "#/api/agent-server-config";
 import {
   automationListPath,
   getInterfaceCopy,
   hasAutomationInterface,
 } from "#/manifests/automation-interface";
+import {
+  CUSTOMIZE_PATH,
+  usePinnedHomeRoute,
+} from "#/hooks/use-pinned-home-route";
 import { SidebarCollapsedIconSlot } from "./sidebar-collapsed-icon-slot";
 import { SidebarNavLink } from "./sidebar-nav-link";
 import { I18nKey } from "#/i18n/declaration";
@@ -29,13 +36,19 @@ import {
   SIDEBAR_COLLAPSE_TOGGLE_OVERLAY_CLASS,
   SIDEBAR_COLLAPSED_LOGO_WRAPPER_CLASS,
   SIDEBAR_ICON_BUTTON_CLASS,
+  SIDEBAR_ICON_SLOT_CLASS,
   sidebarHeaderRowClassName,
   sidebarNavLabelClassName,
   sidebarNavListClassName,
   sidebarNavRowClassName,
 } from "./sidebar-layout";
+import { useCanvasExtensionsRuntime } from "#/components/features/canvas-extensions/canvas-extensions-runtime";
+import type { Backend } from "#/api/backend-registry/types";
 
 const ICON_SIZE = 18;
+
+const SIDEBAR_LOGO_WIDTH = 34;
+const SIDEBAR_LOGO_HEIGHT = Math.round((SIDEBAR_LOGO_WIDTH * 30) / 46);
 
 export interface SidebarRailBodyProps {
   collapsed: boolean;
@@ -48,6 +61,8 @@ export interface SidebarRailBodyProps {
   showCollapsedExpandButton: boolean;
   isExtensionsActive: boolean;
   currentPath: string;
+  activeBackend: Backend;
+  activeOrgId: string | null;
   activeBackendHealth: { isConnected: boolean | null } | undefined;
   collapsedBackendPopoverOpen: boolean;
   setCollapsedBackendPopoverOpen: (open: boolean) => void;
@@ -70,6 +85,8 @@ export function SidebarRailBody({
   showCollapsedExpandButton,
   isExtensionsActive,
   currentPath,
+  activeBackend,
+  activeOrgId,
   activeBackendHealth,
   collapsedBackendPopoverOpen,
   setCollapsedBackendPopoverOpen,
@@ -79,13 +96,62 @@ export function SidebarRailBody({
   onOpenManageBackends,
 }: SidebarRailBodyProps) {
   const { t } = useTranslation("openhands");
+  const { pages: canvasExtensionPages } = useCanvasExtensionsRuntime();
   const backendCloseTimerRef = collapsedBackendCloseTimer;
+  const { isPinnedRoute, togglePinnedRoute } = usePinnedHomeRoute();
+
+  const buildPinAction = (path: string, testId: string) => {
+    const pinned = isPinnedRoute(path);
+    return {
+      pinned,
+      onToggle: () => togglePinnedRoute(path),
+      label: pinned
+        ? t(I18nKey.SIDEBAR$UNPIN_AS_HOME)
+        : t(I18nKey.SIDEBAR$PIN_AS_HOME),
+      testId,
+    };
+  };
+
+  const isCloudBackend = activeBackend.kind === "cloud";
+  // `org` is consumed by the cloud settings loader so the page opens on the
+  // org that is active here instead of the cloud's last-used org.
+  const cloudSettingsOrgQuery = activeOrgId
+    ? `?org=${encodeURIComponent(activeOrgId)}`
+    : "";
+  const cloudSettingsUrl = isCloudBackend
+    ? `${activeBackend.host.replace(/\/+$/, "")}/settings${cloudSettingsOrgQuery}`
+    : null;
+  // Locked-to-Cloud (SaaS / self-hosted OHE) serves the canvas at /canvas on
+  // the cloud host itself, so cloud settings open in this tab and Back
+  // returns here (OHE-3242). Standalone / Electron keep the new tab.
+  const isLockedToCloud = getLockedCloudHost() !== null;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className={sidebarHeaderRowClassName(collapsed)}>
-        {collapsed && showCollapseToggle ? (
-          <div className={SIDEBAR_COLLAPSED_LOGO_WRAPPER_CLASS}>
+        <div
+          className={cn(
+            collapsed && showCollapseToggle
+              ? SIDEBAR_COLLAPSED_LOGO_WRAPPER_CLASS
+              : "flex min-w-0 shrink-0 items-center",
+          )}
+        >
+          <div
+            className={cn(
+              collapsed &&
+                showCollapseToggle &&
+                "flex h-full w-full items-center justify-start pl-2.5 transition-opacity duration-150",
+              collapsed && showCollapsedExpandButton && "opacity-0",
+            )}
+          >
+            <OpenHandsLogoButton
+              logoWidth={SIDEBAR_LOGO_WIDTH}
+              logoHeight={SIDEBAR_LOGO_HEIGHT}
+              logoClassName="max-w-none"
+              className={cn(SIDEBAR_ICON_SLOT_CLASS, "overflow-visible")}
+            />
+          </div>
+          {collapsed && showCollapseToggle ? (
             <button
               type="button"
               data-testid="sidebar-collapse-toggle"
@@ -101,8 +167,8 @@ export function SidebarRailBody({
             >
               <ChevronRight width={14} height={14} />
             </button>
-          </div>
-        ) : null}
+          ) : null}
+        </div>
         {!collapsed ? (
           <div className="ml-auto flex items-center gap-0.5">
             <SidebarThemeToggle collapsed={false} />
@@ -116,7 +182,7 @@ export function SidebarRailBody({
                 className={cn(
                   "hidden md:inline-flex",
                   SIDEBAR_ICON_BUTTON_CLASS,
-                  "text-[var(--oh-muted)] hover:text-[var(--oh-foreground)] hover:bg-[var(--oh-surface-raised)]",
+                  "text-muted hover:text-contrast hover:bg-surface-raised",
                 )}
               >
                 <ChevronLeft width={14} height={14} />
@@ -131,7 +197,7 @@ export function SidebarRailBody({
                 className={cn(
                   "inline-flex",
                   SIDEBAR_ICON_BUTTON_CLASS,
-                  "text-[var(--oh-muted)] hover:text-[var(--oh-foreground)] hover:bg-[var(--oh-surface-raised)]",
+                  "text-muted hover:text-contrast hover:bg-surface-raised",
                 )}
               >
                 <ChevronLeft width={14} height={14} />
@@ -152,11 +218,15 @@ export function SidebarRailBody({
           icon={<Plus width={ICON_SIZE} height={ICON_SIZE} />}
         />
         <SidebarNavLink
-          to="/customize"
+          to={CUSTOMIZE_PATH}
           label={t(I18nKey.NAV$CUSTOMIZE)}
           testId="sidebar-skills-link"
           collapsed={collapsed}
           forceActive={isExtensionsActive}
+          pinAction={buildPinAction(
+            CUSTOMIZE_PATH,
+            "sidebar-pin-home-toggle-customize",
+          )}
           icon={
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -194,8 +264,22 @@ export function SidebarRailBody({
             testId="sidebar-automations-link"
             collapsed={collapsed}
             icon={<AutomationsIcon width={ICON_SIZE} height={ICON_SIZE} />}
+            pinAction={buildPinAction(
+              automationListPath(),
+              "sidebar-pin-home-toggle-automations",
+            )}
           />
         )}
+        {canvasExtensionPages.map((page) => (
+          <SidebarNavLink
+            key={`${page.extension.name}:${page.contribution.id}`}
+            to={page.href}
+            label={page.contribution.nav_label || page.contribution.title}
+            testId={`sidebar-canvas-extension-${page.extension.name}-${page.contribution.id}`}
+            collapsed={collapsed}
+            icon={<PanelsTopLeft width={ICON_SIZE} height={ICON_SIZE} />}
+          />
+        ))}
       </nav>
 
       <SidebarConversationList collapsed={collapsed} />
@@ -212,21 +296,39 @@ export function SidebarRailBody({
             content={t(I18nKey.SIDEBAR$SETTINGS)}
             placement="right"
           >
-            <NavigationLink
-              to="/settings"
-              data-testid="collapsed-settings-link"
-              aria-label={t(I18nKey.SIDEBAR$SETTINGS)}
-              className={sidebarNavRowClassName({ collapsed: true })}
-            >
-              <SidebarCollapsedIconSlot
-                active={currentPath.startsWith("/settings")}
+            {isCloudBackend && cloudSettingsUrl ? (
+              <a
+                href={cloudSettingsUrl}
+                target={isLockedToCloud ? undefined : "_blank"}
+                rel={isLockedToCloud ? undefined : "noopener noreferrer"}
+                data-testid="collapsed-settings-link"
+                aria-label={t(I18nKey.SIDEBAR$SETTINGS)}
+                className={sidebarNavRowClassName({ collapsed: true })}
               >
-                <Settings width={ICON_SIZE} height={ICON_SIZE} />
-              </SidebarCollapsedIconSlot>
-              <span className={sidebarNavLabelClassName(true)}>
-                {t(I18nKey.SIDEBAR$SETTINGS)}
-              </span>
-            </NavigationLink>
+                <SidebarCollapsedIconSlot active={false}>
+                  <Settings width={ICON_SIZE} height={ICON_SIZE} />
+                </SidebarCollapsedIconSlot>
+                <span className={sidebarNavLabelClassName(true)}>
+                  {t(I18nKey.SIDEBAR$SETTINGS)}
+                </span>
+              </a>
+            ) : (
+              <NavigationLink
+                to="/settings"
+                data-testid="collapsed-settings-link"
+                aria-label={t(I18nKey.SIDEBAR$SETTINGS)}
+                className={sidebarNavRowClassName({ collapsed: true })}
+              >
+                <SidebarCollapsedIconSlot
+                  active={currentPath.startsWith("/settings")}
+                >
+                  <Settings width={ICON_SIZE} height={ICON_SIZE} />
+                </SidebarCollapsedIconSlot>
+                <span className={sidebarNavLabelClassName(true)}>
+                  {t(I18nKey.SIDEBAR$SETTINGS)}
+                </span>
+              </NavigationLink>
+            )}
           </StyledTooltip>
           <div
             className="relative"
@@ -261,7 +363,7 @@ export function SidebarRailBody({
               )}
             >
               <SidebarCollapsedIconSlot active={collapsedBackendPopoverOpen}>
-                <span className="relative inline-flex size-[18px] shrink-0 items-center justify-center">
+                <span className="relative inline-flex size-4.5 shrink-0 items-center justify-center">
                   <BackendStatusDot
                     isConnected={activeBackendHealth?.isConnected ?? null}
                     className="absolute -left-0.5 -top-0.5 z-[1] pointer-events-none"
@@ -275,7 +377,7 @@ export function SidebarRailBody({
             </button>
             {collapsedBackendPopoverOpen ? (
               <div
-                className="absolute bottom-[-4px] left-full pl-2.5 z-40 w-[272px]"
+                className="absolute bottom-[-4px] left-full pl-2.5 z-40 w-68"
                 onClick={(event) => event.stopPropagation()}
               >
                 <BackendSelector
@@ -298,7 +400,7 @@ export function SidebarRailBody({
           <div
             className={cn(
               "flex flex-col items-stretch max-w-none box-border shrink-0 gap-2",
-              "-ml-2.5 w-[calc(100%+0.625rem)] border-t border-[var(--oh-border)] pt-2 px-2.5",
+              "-ml-2.5 w-[calc(100%+0.625rem)] border-t border-border pt-2 px-2.5",
             )}
           >
             <AgentCanvasVersionTile hideWhenUpToDate />

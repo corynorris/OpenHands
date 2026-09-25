@@ -2,7 +2,10 @@ import { SkillsClient } from "@openhands/typescript-client/clients";
 import { SkillInfo } from "#/types/settings";
 import { getAgentServerWorkingDir } from "./agent-server-config";
 import { getActiveBackend } from "./backend-registry/active-store";
-import { fetchCloudSkills } from "./cloud/skills-service.api";
+import {
+  fetchCloudConversationSkills,
+  fetchCloudSkills,
+} from "./cloud/skills-service.api";
 import { getAgentServerClientOptions } from "./agent-server-client-options";
 
 class SkillsService {
@@ -30,6 +33,16 @@ class SkillsService {
       // unreachable; there is no bundled fallback anymore.
       return [];
     }
+  }
+
+  /**
+   * Skills loaded into a running cloud conversation (see
+   * `fetchCloudConversationSkills`). Cloud-only: local conversations keep
+   * using `getSkills(projectDir)`, whose agent-server call already scopes to
+   * the conversation's workspace.
+   */
+  static getConversationSkills(conversationId: string): Promise<SkillInfo[]> {
+    return fetchCloudConversationSkills(conversationId);
   }
 }
 

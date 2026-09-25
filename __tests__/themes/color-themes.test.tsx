@@ -1,85 +1,69 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { act, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it } from "vitest";
 import { AgentServerUIRoot } from "#/components/providers/agent-server-ui-root";
 import {
   AVAILABLE_COLOR_THEMES,
   COLOR_THEMES,
-  DARK_COLOR_THEME_KEYS,
-  DEFAULT_DARK_COLOR_THEME,
-  DEFAULT_LIGHT_COLOR_THEME,
-  LIGHT_COLOR_THEME_KEYS,
   applyColorTheme,
-  persistDarkThemeKey,
-  persistLightThemeKey,
-  readPersistedColorTheme,
-  readPersistedDarkThemeKey,
-  readPersistedLightThemeKey,
 } from "#/themes/color-themes";
 
 describe("color themes", () => {
-  it("offers four themes grouped into dark and light pickers", () => {
-    expect(AVAILABLE_COLOR_THEMES.map((theme) => theme.key).sort()).toEqual([
-      "openhands-deepsea",
-      "openhands-light",
+  afterEach(() => {
+    document
+      .querySelectorAll("style[data-theme-test]")
+      .forEach((el) => el.remove());
+  });
+
+  it("leaves omitted tokens owned by consumer stylesheets", () => {
+    const sheet = document.createElement("style");
+    sheet.dataset.themeTest = "";
+    sheet.textContent =
+      "[data-agent-server-ui] { --oh-color-primary: #123456; --oh-radius: 12px; }";
+    document.head.appendChild(sheet);
+    render(
+      <AgentServerUIRoot data-testid="consumer-scope">
+        Canvas
+      </AgentServerUIRoot>,
+    );
+    act(() => applyColorTheme("openhands-neutral"));
+    const style = getComputedStyle(screen.getByTestId("consumer-scope"));
+    expect(style.getPropertyValue("--oh-color-primary")).toBe("#123456");
+    expect(style.getPropertyValue("--oh-radius")).toBe("12px");
+  });
+  it("includes OpenHands-Neo as a neutral-based theme with white button tokens", () => {
+    const neo = COLOR_THEMES["openhands-neo"];
+
+    expect(neo.label).toBe("OpenHands-Neo");
+    expect(neo.scale).toEqual(COLOR_THEMES["openhands-neutral"].scale);
+    expect(neo.heroui).toEqual(COLOR_THEMES["openhands-neutral"].heroui);
+    expect(neo.tokens?.["--oh-color-primary"]).toBe("#ffffff");
+    expect(neo.tokens?.["--oh-accent"]).toBe("#ffffff");
+  });
+
+  it("exposes Neo in the settings theme picker", () => {
+    expect(AVAILABLE_COLOR_THEMES.map((theme) => theme.key)).toContain(
       "openhands-neo",
-      "openhands-neutral",
-    ]);
-    // Dark-natured: neutral (fork default), deepsea, neo (dark surfaces with
-    // white primary buttons). Light-natured: the fork's light theme.
-    expect(DARK_COLOR_THEME_KEYS).toEqual([
-      "openhands-neutral",
-      "openhands-deepsea",
-      "openhands-neo",
-    ]);
-    expect(LIGHT_COLOR_THEME_KEYS).toEqual(["openhands-light"]);
-
-    // Picker labels come from each theme's own definition.
-    expect(COLOR_THEMES["openhands-deepsea"].label).toBe("OpenHands-DeepSea");
-    expect(COLOR_THEMES["openhands-neutral"].label).toBe("OpenHands-Neutral");
-    expect(COLOR_THEMES["openhands-neo"].label).toBe("OpenHands-Neo");
-    expect(COLOR_THEMES["openhands-light"].label).toBe("OpenHands-Light");
+    );
+    expect(
+      AVAILABLE_COLOR_THEMES.find((theme) => theme.key === "openhands-neo")
+        ?.label,
+    ).toBe("OpenHands-Neo");
   });
 
-  it("defaults to the fork's neutral dark theme and light theme", () => {
-    expect(DEFAULT_DARK_COLOR_THEME).toBe("openhands-neutral");
-    expect(DEFAULT_LIGHT_COLOR_THEME).toBe("openhands-light");
-    expect(readPersistedColorTheme()).toBe("openhands-neutral");
-    expect(readPersistedDarkThemeKey()).toBe("openhands-neutral");
-    expect(readPersistedLightThemeKey()).toBe("openhands-light");
-  });
+  it("injects white primary tokens when applying OpenHands-Neo", () => {
+    document.body.setAttribute("data-agent-server-ui", "");
 
-  it("persists the light and dark picker selections independently", () => {
-    persistLightThemeKey("openhands-light");
-    persistDarkThemeKey("openhands-deepsea");
-    expect(readPersistedLightThemeKey()).toBe("openhands-light");
-    expect(readPersistedDarkThemeKey()).toBe("openhands-deepsea");
+    applyColorTheme("openhands-neo");
 
-    // A dark-natured key is rejected by the light picker and falls back.
-    persistLightThemeKey("openhands-neo");
-    expect(readPersistedLightThemeKey()).toBe(DEFAULT_LIGHT_COLOR_THEME);
+    const styleEl = document.getElementById("oh-color-theme-override");
+    expect(styleEl?.textContent).toContain("--oh-color-primary: #ffffff;");
+    expect(styleEl?.textContent).toContain("--oh-accent: #ffffff;");
 
-    // A light-natured key is rejected by the dark picker and falls back.
-    persistDarkThemeKey("openhands-light");
-    expect(readPersistedDarkThemeKey()).toBe(DEFAULT_DARK_COLOR_THEME);
-
-    window.localStorage.removeItem("openhands-light-theme");
-    window.localStorage.removeItem("openhands-dark-theme");
-  });
-
-  it("keeps legacy persisted keys (deepsea/neo) valid and rejects unknown ones", () => {
-    window.localStorage.setItem("openhands-color-theme", "openhands-neo");
-    expect(readPersistedColorTheme()).toBe("openhands-neo");
-
-    window.localStorage.setItem("openhands-color-theme", "openhands-deepsea");
-    expect(readPersistedColorTheme()).toBe("openhands-deepsea");
-
-    window.localStorage.setItem("openhands-color-theme", "openhands-light");
-    expect(readPersistedColorTheme()).toBe("openhands-light");
-
-    window.localStorage.setItem("openhands-color-theme", "not-a-theme");
-    expect(readPersistedColorTheme()).toBe(DEFAULT_DARK_COLOR_THEME);
-
-    window.localStorage.removeItem("openhands-color-theme");
+    styleEl?.remove();
+    document.body.removeAttribute("data-agent-server-ui");
+    document.body.style.removeProperty("--oh-color-primary");
+    document.body.style.removeProperty("--oh-accent");
+    document.body.style.removeProperty("--oh-warning");
   });
 
   it("injects override rules with order-independent doubled scope selectors", () => {
@@ -93,7 +77,9 @@ describe("color themes", () => {
     expect(styleEl?.textContent).toContain(
       "[data-agent-server-ui][data-agent-server-ui] {",
     );
-    expect(styleEl?.textContent).toContain("[data-theme=dark][data-theme=dark] {");
+    expect(styleEl?.textContent).toContain(
+      "[data-agent-server-ui] [data-theme][data-theme] {",
+    );
 
     styleEl?.remove();
   });
@@ -106,7 +92,7 @@ describe("color themes", () => {
     document.head.appendChild(laterSheet);
 
     // Act
-    applyColorTheme("openhands-light");
+    applyColorTheme("openhands-deepsea");
 
     // Assert
     expect(document.head.lastElementChild?.id).toBe("oh-color-theme-override");
@@ -115,14 +101,12 @@ describe("color themes", () => {
     document.getElementById("oh-color-theme-override")?.remove();
   });
 
-  it("emits the white button tokens when OpenHands-Neo is applied", () => {
-    applyColorTheme("openhands-neo");
-    const styleEl = document.getElementById("oh-color-theme-override");
-    expect(styleEl?.textContent).toContain("--oh-color-primary: #ffffff;");
-    styleEl?.remove();
-  });
-
-  it("applies theme tokens on the scoped UI root used by primary buttons", () => {
+  it("applies Neo button tokens on the scoped UI root used by primary buttons", () => {
+    const baseSheet = document.createElement("style");
+    baseSheet.dataset.themeTest = "";
+    baseSheet.textContent =
+      "[data-agent-server-ui] { --oh-color-primary: #c9b974; }";
+    document.head.appendChild(baseSheet);
     render(
       <AgentServerUIRoot>
         <button type="button" data-testid="primary-button">
@@ -131,19 +115,20 @@ describe("color themes", () => {
       </AgentServerUIRoot>,
     );
 
-    applyColorTheme("openhands-light");
+    act(() => applyColorTheme("openhands-neo"));
 
-    const scopeRoot = screen.getByTestId("primary-button").closest(
-      "[data-agent-server-ui]",
-    ) as HTMLElement;
+    const scopeRoot = screen
+      .getByTestId("primary-button")
+      .closest("[data-agent-server-ui]") as HTMLElement;
 
-    // The light theme carries no --oh-color-primary override, so the scoped
-    // root falls back to its inline default (nothing forced on).
-    expect(scopeRoot.style.getPropertyValue("--oh-color-primary")).toBe("");
+    expect(
+      getComputedStyle(scopeRoot).getPropertyValue("--oh-color-primary"),
+    ).toBe("#ffffff");
 
-    applyColorTheme("openhands-neutral");
-    expect(COLOR_THEMES["openhands-neutral"].scale["--cool-grey-950"]).toBe(
-      "#181818",
-    );
+    act(() => applyColorTheme("openhands-neutral"));
+
+    expect(
+      getComputedStyle(scopeRoot).getPropertyValue("--oh-color-primary"),
+    ).toBe("#c9b974");
   });
 });
