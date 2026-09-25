@@ -17,6 +17,10 @@ export const getLanguageFromPath = (path: string): string => {
       return "json";
     case "md":
       return "markdown";
+    case "cs":
+      return "csharp";
+    case "gd":
+      return "gdscript";
     case "yml":
     case "yaml":
       return "yaml";

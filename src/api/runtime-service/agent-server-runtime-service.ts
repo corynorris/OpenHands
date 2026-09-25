@@ -1,4 +1,5 @@
-import { FileClient } from "@openhands/typescript-client/clients";
+import { FileClient, BashClient } from "@openhands/typescript-client/clients";
+import type { BashOutput } from "@openhands/typescript-client";
 import { RemoteWorkspace } from "@openhands/typescript-client/workspace/remote-workspace";
 import { getAgentServerClientOptions } from "#/api/agent-server-client-options";
 import { getActiveBackend } from "#/api/backend-registry/active-store";
@@ -65,6 +66,98 @@ class AgentServerRuntimeService {
       stdout: result.stdout,
       stderr: result.stderr,
     };
+  }
+
+  /**
+   * Execute a command and reassemble the COMPLETE stdout/stderr from the
+   * chunked BashOutput event stream.
+   *
+   * Why this exists: the agent-server streams bash stdout in 1MB chunks
+   * (MAX_CONTENT_CHAR_LENGTH) and `POST /api/bash/execute_bash_command` only
+   * returns the LAST chunk (`page.items[-1]`). For commands whose output
+   * exceeds 1MB — like the workspace `find | sort` listing on a large repo —
+   * the first chunks (the lexically-earliest paths) are silently dropped, so
+   * folders like `addons/` or `data/` never reach the UI. This method starts
+   * the command, polls the event store for every BashOutput chunk (ordered by
+   * `order`), and concatenates them.
+   *
+   * Local only: cloud runtimes never use bash for file listing (they hit the
+   * first-class `/files` endpoint), so cloud keeps the single-shot path.
+   */
+  static async executeCommandCollectingChunks(
+    conversationUrl: string | null | undefined,
+    sessionApiKey: string | null | undefined,
+    command: string,
+    cwd?: string,
+    timeout = 30,
+  ): Promise<CommandResult> {
+    const active = getActiveBackend().backend;
+
+    if (active.kind === "cloud" && conversationUrl) {
+      return AgentServerRuntimeService.executeCommand(
+        conversationUrl,
+        sessionApiKey,
+        command,
+        cwd,
+        timeout,
+      );
+    }
+
+    const options = getAgentServerClientOptions({
+      conversationUrl,
+      sessionApiKey,
+    });
+    const client = new BashClient({
+      host: options.host,
+      apiKey: options.apiKey,
+      timeout: (timeout + 10) * 1000,
+    });
+
+    // NOTE: pass the command as a string — BashClient.normalizeRequest only
+    // forwards `cwd`/`timeout` for string requests, and an object form would
+    // silently run the command in the agent-server's default directory.
+    const started = await client.startCommand(command, cwd, timeout);
+
+    const deadline = Date.now() + (timeout + 10) * 1000;
+    const chunks = new Map<number, BashOutput>();
+    let finalEvent: BashOutput | null = null;
+
+    while (Date.now() < deadline) {
+      const page = await client.searchEvents({
+        command_id__eq: started.id,
+        limit: 100,
+      });
+
+      for (const item of page.items) {
+        if (item.kind !== "BashOutput") continue;
+        const output = item as BashOutput;
+        if (output.exit_code !== undefined && output.exit_code !== null) {
+          finalEvent = output;
+        } else if (output.stdout != null || output.stderr != null) {
+          chunks.set(output.order, output);
+        }
+      }
+
+      if (finalEvent) break;
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+
+    if (!finalEvent) {
+      throw new Error("Timed out waiting for bash command output");
+    }
+
+    const orders = [...chunks.keys()].sort((a, b) => a - b);
+    let stdout = "";
+    let stderr = "";
+    for (const order of orders) {
+      const chunk = chunks.get(order);
+      stdout += chunk?.stdout ?? "";
+      stderr += chunk?.stderr ?? "";
+    }
+    stdout += finalEvent.stdout ?? "";
+    stderr += finalEvent.stderr ?? "";
+
+    return { exit_code: finalEvent.exit_code ?? -1, stdout, stderr };
   }
 
   static async downloadFile(

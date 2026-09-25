@@ -9,6 +9,7 @@ import {
 import { MarkdownRenderer } from "#/components/features/markdown/markdown-renderer";
 import { isMarkdownFilePath } from "#/utils/is-markdown-file-path";
 import { HighlightedSourceView } from "./highlighted-source-view";
+import { ModelPreview } from "./model-preview";
 import type { ViewMode } from "./view-mode";
 
 interface FileContentViewerProps {
@@ -17,6 +18,9 @@ interface FileContentViewerProps {
 }
 
 const HTML_LIKE_EXTS = new Set(["html", "htm", "svg"]);
+
+// 3D model formats we can preview with the lazy three.js viewer.
+const MODEL_EXTS = new Set(["glb", "gltf", "obj", "stl"]);
 
 // Office/document formats we can't preview inline. The label doubles as the
 // allow-list (a present entry => Office doc) and feeds a clear, format-named
@@ -119,6 +123,11 @@ export function FileContentViewer({ path, viewMode }: FileContentViewerProps) {
       );
     }
     return <UnpreviewableFallback path={path} />;
+  }
+
+  // ----- Rich mode: 3D models (glTF / OBJ / STL) get a three.js viewer. ----
+  if (MODEL_EXTS.has(getExtension(path))) {
+    return <ModelPreview url={bustedStaticUrl} ext={getExtension(path)} />;
   }
 
   // ----- Rich mode: render HTML, markdown, images, PDFs from staticUrl. ----

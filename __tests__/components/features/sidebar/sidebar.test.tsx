@@ -469,23 +469,6 @@ describe("Sidebar", () => {
     }
   });
 
-  it("renders the Getting Started checklist above the bottom backend bar", () => {
-    renderSidebar("/conversations");
-
-    const automations = screen.getByTestId("sidebar-automations-link");
-    const checklist = screen.getByTestId("sidebar-onboarding-checklist");
-    const backendBar = screen.getByTestId("backend-selector");
-
-    expect(
-      automations.compareDocumentPosition(checklist) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-    expect(
-      checklist.compareDocumentPosition(backendBar) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-  });
-
   it("renders icons for every top-level nav item so they remain meaningful in the collapsed rail", () => {
     renderSidebar("/conversations");
 

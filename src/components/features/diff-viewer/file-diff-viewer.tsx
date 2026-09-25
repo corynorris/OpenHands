@@ -22,6 +22,7 @@ import { Typography } from "#/ui/typography";
 import { LoadingSpinner } from "./loading-spinner";
 import { EditorContainer } from "./editor-container";
 import { AccordionPanel } from "./accordion-panel";
+import { registerGdscriptLanguage } from "./gdscript-language";
 
 type ViewMode = "diff" | "old" | "new";
 
@@ -56,6 +57,8 @@ const STATUS_MAP: Record<GitChangeStatus, string | IconType> = {
 };
 
 const beforeMount = (monaco: Monaco) => {
+  // .gd files need a registered language before the editors can highlight them.
+  registerGdscriptLanguage(monaco);
   monaco.editor.defineTheme("custom-diff-theme", {
     base: "vs-dark",
     inherit: true,

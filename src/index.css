@@ -134,3 +134,12 @@ code {
 .environment-switch-overlay > div {
   animation: environment-switch-overlay-fade 980ms ease-in-out forwards;
 }
+
+/* File-type icons: scale the Atom file-icons glyphs (natively 16px) down to
+   the 12–14px tree/tabs rows and normalize their positioning. */
+.file-type-icon .icon:before {
+  font-size: 13px !important;
+  width: 13px !important;
+  top: 0 !important;
+  left: 0 !important;
+}

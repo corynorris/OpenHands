@@ -7,7 +7,6 @@ import {
   Server,
   Settings,
 } from "lucide-react";
-import { OpenHandsLogoButton } from "#/components/shared/buttons/openhands-logo-button";
 import { NavigationLink } from "#/components/shared/navigation-link";
 import {
   automationListPath,
@@ -30,7 +29,6 @@ import {
   SIDEBAR_COLLAPSE_TOGGLE_OVERLAY_CLASS,
   SIDEBAR_COLLAPSED_LOGO_WRAPPER_CLASS,
   SIDEBAR_ICON_BUTTON_CLASS,
-  SIDEBAR_ICON_SLOT_CLASS,
   sidebarHeaderRowClassName,
   sidebarNavLabelClassName,
   sidebarNavListClassName,
@@ -38,8 +36,6 @@ import {
 } from "./sidebar-layout";
 
 const ICON_SIZE = 18;
-const SIDEBAR_LOGO_WIDTH = 34;
-const SIDEBAR_LOGO_HEIGHT = Math.round((SIDEBAR_LOGO_WIDTH * 30) / 46);
 
 export interface SidebarRailBodyProps {
   collapsed: boolean;
@@ -88,29 +84,8 @@ export function SidebarRailBody({
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className={sidebarHeaderRowClassName(collapsed)}>
-        <div
-          className={cn(
-            collapsed && showCollapseToggle
-              ? SIDEBAR_COLLAPSED_LOGO_WRAPPER_CLASS
-              : "flex min-w-0 shrink-0 items-center",
-          )}
-        >
-          <div
-            className={cn(
-              collapsed &&
-                showCollapseToggle &&
-                "flex h-full w-full items-center justify-start pl-2.5 transition-opacity duration-150",
-              collapsed && showCollapsedExpandButton && "opacity-0",
-            )}
-          >
-            <OpenHandsLogoButton
-              logoWidth={SIDEBAR_LOGO_WIDTH}
-              logoHeight={SIDEBAR_LOGO_HEIGHT}
-              logoClassName="max-w-none"
-              className={cn(SIDEBAR_ICON_SLOT_CLASS, "overflow-visible")}
-            />
-          </div>
-          {collapsed && showCollapseToggle ? (
+        {collapsed && showCollapseToggle ? (
+          <div className={SIDEBAR_COLLAPSED_LOGO_WRAPPER_CLASS}>
             <button
               type="button"
               data-testid="sidebar-collapse-toggle"
@@ -126,38 +101,43 @@ export function SidebarRailBody({
             >
               <ChevronRight width={14} height={14} />
             </button>
-          ) : null}
-        </div>
-        {!collapsed && showCollapseToggle ? (
-          <button
-            type="button"
-            data-testid="sidebar-collapse-toggle"
-            aria-pressed={collapsed}
-            aria-label={collapseToggleLabel}
-            onClick={onCollapse}
-            className={cn(
-              "hidden md:inline-flex ml-auto",
-              SIDEBAR_ICON_BUTTON_CLASS,
-              "text-[var(--oh-muted)] hover:text-[var(--oh-foreground)] hover:bg-[var(--oh-surface-raised)]",
-            )}
-          >
-            <ChevronLeft width={14} height={14} />
-          </button>
+          </div>
         ) : null}
-        {!collapsed && showMobileCloseButton ? (
-          <button
-            type="button"
-            data-testid="sidebar-mobile-drawer-close"
-            onClick={onCloseMobile}
-            aria-label={t(I18nKey.SIDEBAR$CLOSE_MENU)}
-            className={cn(
-              "inline-flex ml-auto",
-              SIDEBAR_ICON_BUTTON_CLASS,
-              "text-[var(--oh-muted)] hover:text-[var(--oh-foreground)] hover:bg-[var(--oh-surface-raised)]",
-            )}
-          >
-            <ChevronLeft width={14} height={14} />
-          </button>
+        {!collapsed ? (
+          <div className="ml-auto flex items-center gap-0.5">
+            <SidebarThemeToggle collapsed={false} />
+            {showCollapseToggle ? (
+              <button
+                type="button"
+                data-testid="sidebar-collapse-toggle"
+                aria-pressed={collapsed}
+                aria-label={collapseToggleLabel}
+                onClick={onCollapse}
+                className={cn(
+                  "hidden md:inline-flex",
+                  SIDEBAR_ICON_BUTTON_CLASS,
+                  "text-[var(--oh-muted)] hover:text-[var(--oh-foreground)] hover:bg-[var(--oh-surface-raised)]",
+                )}
+              >
+                <ChevronLeft width={14} height={14} />
+              </button>
+            ) : null}
+            {showMobileCloseButton ? (
+              <button
+                type="button"
+                data-testid="sidebar-mobile-drawer-close"
+                onClick={onCloseMobile}
+                aria-label={t(I18nKey.SIDEBAR$CLOSE_MENU)}
+                className={cn(
+                  "inline-flex",
+                  SIDEBAR_ICON_BUTTON_CLASS,
+                  "text-[var(--oh-muted)] hover:text-[var(--oh-foreground)] hover:bg-[var(--oh-surface-raised)]",
+                )}
+              >
+                <ChevronLeft width={14} height={14} />
+              </button>
+            ) : null}
+          </div>
         ) : null}
       </div>
 
@@ -322,7 +302,6 @@ export function SidebarRailBody({
             )}
           >
             <AgentCanvasVersionTile hideWhenUpToDate />
-            <SidebarThemeToggle collapsed={false} />
             <BackendSelector sidebarCollapsed={collapsed} openUpward />
           </div>
         </>

@@ -19,7 +19,7 @@ import {
 import { getContextFillTone } from "#/components/features/conversation/usage-panel/context-meter";
 import {
   ContextWindowRing,
-  CONTEXT_WINDOW_TRACK_COLOR,
+  useContextWindowTrackColor,
 } from "./context-window-ring";
 import { PeakHoursBadge } from "./peak-hours-badge";
 
@@ -37,6 +37,7 @@ const TONE_LABEL_CLASS = {
 
 export function ContextWindowMeter() {
   const { t } = useTranslation("openhands");
+  const trackColor = useContextWindowTrackColor();
   const usage = useContextWindowUsage();
   const { navigateToTab } = useSelectConversationTab();
   const [isPopoverOpen, setIsPopoverOpen] = React.useState(false);
@@ -120,7 +121,7 @@ export function ContextWindowMeter() {
               type="button"
               data-testid="context-window-meter-bar-button"
               className="relative h-1.5 w-full rounded-full cursor-pointer"
-              style={{ backgroundColor: CONTEXT_WINDOW_TRACK_COLOR }}
+              style={{ backgroundColor: trackColor }}
               aria-label={t(I18nKey.COMMON$USAGE)}
               onClick={(event) => {
                 event.preventDefault();

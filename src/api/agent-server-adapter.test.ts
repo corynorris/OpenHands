@@ -150,7 +150,8 @@ describe("buildStartConversationRequest", () => {
     expect(skillNames).not.toContain("agent-memory");
     expect(skillNames).not.toContain("disabled-custom");
     expect(skillNames).toContain("enabled-custom");
-    expect(skillNames).toContain("add-javadoc");
+    // Built-in skills were removed; only custom skills can appear.
+    expect(skillNames).not.toContain("add-javadoc");
   });
 
   it("excludes disabled skills from ACP conversation context", () => {
@@ -174,7 +175,8 @@ describe("buildStartConversationRequest", () => {
     expect(skillNames).not.toContain("agent-memory");
     expect(skillNames).not.toContain("disabled-custom");
     expect(skillNames).toContain("enabled-custom");
-    expect(skillNames).toContain("add-javadoc");
+    // Built-in skills were removed; only custom skills can appear.
+    expect(skillNames).not.toContain("add-javadoc");
   });
 });
 

@@ -168,8 +168,9 @@ describe("buildStartConversationRequest", () => {
     expect(payload.agent_settings.agent_context).not.toHaveProperty(
       "load_memory",
     );
-    // Bundled public skills are injected into agent_context.skills so the
-    // SDK can perform trigger matching without cloning the extensions repo.
+        // Built-in/public skills are intentionally NOT injected (the extensions
+    // catalog was removed — only user/project skills from .agents/skills
+    // load), so the context array carries exactly the user's custom skills.
     expect(Array.isArray(payload.agent_settings.agent_context.skills)).toBe(
       true,
     );
@@ -177,28 +178,7 @@ describe("buildStartConversationRequest", () => {
       string,
       unknown
     >[];
-    expect(skills.length).toBeGreaterThan(0);
-    // Every bundled skill must carry the fields the SDK needs for trigger
-    // matching and system-prompt injection.
-    for (const skill of skills) {
-      expect(skill).toHaveProperty("name");
-      expect(skill).toHaveProperty("content");
-      // source must be an absolute path to the skill's SKILL.md so the
-      // Python agent-server can resolve bundled resources (scripts/, references/).
-      const source = skill.source as string;
-      expect(source).toMatch(/^\//);
-      expect(source).toMatch(
-        new RegExp(`/${skill.name as string}/SKILL\\.md$`),
-      );
-      expect(skill).toHaveProperty("is_agentskills_format", true);
-      // trigger is either null (always-active) or { type, keywords }
-      if (skill.trigger !== null) {
-        expect(skill.trigger).toMatchObject({
-          type: "keyword",
-          keywords: expect.arrayContaining([expect.any(String)]),
-        });
-      }
-    }
+    expect(skills).toEqual([]);
     expect(payload.agent_settings.agent).toBe("CodeActAgent");
     expect(payload.agent_settings.enable_switch_llm_tool).toBe(true);
     expect(payload.workspace.working_dir).toBe(

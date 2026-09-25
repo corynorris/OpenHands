@@ -1,5 +1,6 @@
+import { getClass, getClassWithColor } from "file-icons-js";
+import "file-icons-js/css/style.css";
 import {
-  FileIcon as ReactFileIcon,
   defaultStyles,
   type FileIconProps,
   type IconType,
@@ -10,9 +11,9 @@ import { cn } from "#/utils/utils";
 /**
  * Supplementary extension styles for common extensions that react-file-icon's
  * built-in `defaultStyles` map doesn't cover (tsx, mdx, go, rs, yaml, sh, …).
- * Each entry uses the library's 17 glyph types with a recognizable
- * brand-ish label colour. Lookup order is EXTRA_STYLES first, then the
- * library's own map — see `getStyleForExtension`.
+ * Only `labelColor` is used here — the glyph itself comes from the Atom
+ * file-icons set — but keeping the shared shape lets `getStyleForExtension`
+ * fall back to the library's own colour map unchanged.
  */
 const EXTRA_STYLES: Record<string, { labelColor: string; type: IconType }> = {
   tsx: { labelColor: "#3178C6", type: "code" },
@@ -43,6 +44,23 @@ const EXTRA_STYLES: Record<string, { labelColor: string; type: IconType }> = {
   conf: { labelColor: "#A3B0C4", type: "settings" },
   cfg: { labelColor: "#A3B0C4", type: "settings" },
   ini: { labelColor: "#A3B0C4", type: "settings" },
+  // Godot engine files
+  gd: { labelColor: "#478CBF", type: "code" },
+  gdshader: { labelColor: "#9B59B6", type: "code" },
+  shaderinc: { labelColor: "#9B59B6", type: "code" },
+  tscn: { labelColor: "#4DB6AC", type: "code" },
+  escn: { labelColor: "#4DB6AC", type: "code" },
+  tres: { labelColor: "#4DB6AC", type: "code" },
+  res: { labelColor: "#4DB6AC", type: "code" },
+  uid: { labelColor: "#7E8A9E", type: "settings" },
+  godot: { labelColor: "#478CBF", type: "code" },
+  import: { labelColor: "#7E8A9E", type: "settings" },
+  csproj: { labelColor: "#512BD4", type: "code" },
+  sln: { labelColor: "#5C6BC0", type: "code" },
+  xml: { labelColor: "#0060AC", type: "code" },
+  // Present in the library defaults but colorless — give them real colors
+  cs: { labelColor: "#512BD4", type: "code" },
+  md: { labelColor: "#519ABA", type: "document" },
 };
 
 /** Dotfile basenames → the EXTRA_STYLES key that should render their icon. */
@@ -94,32 +112,65 @@ function getStyleForExtension(
   );
 }
 
+/**
+ * Atom file-icons glyph class lookup, cached per basename. The Atom set
+ * matches on full filename/dirname patterns (e.g. `angular.js`, `node_modules`),
+ * so the cache key is the lowercased basename rather than the bare extension.
+ */
+const GLYPH_CLASS_CACHE = new Map<string, string | null>();
+
+function getGlyphClass(path: string, hasBrandColor: boolean): string | null {
+  const basename = path.split("/").pop() ?? path;
+  const cacheKey = basename.toLocaleLowerCase();
+  const cached = GLYPH_CLASS_CACHE.get(cacheKey);
+  if (cached !== undefined) return cached;
+
+  // With a brand colour we tint the monochrome glyph ourselves (inline
+  // color); without one we let the Atom set apply its own colour class.
+  const glyphClass = hasBrandColor
+    ? getClass(basename)
+    : getClassWithColor(basename);
+  GLYPH_CLASS_CACHE.set(cacheKey, glyphClass);
+  return glyphClass;
+}
+
 interface FileTypeIconProps {
   path: string;
   className?: string;
 }
 
 /**
- * Per-extension file icon with a colour/glyph from react-file-icon's built-in
- * `defaultStyles` map plus the supplementary `EXTRA_STYLES` map above.
- * Unknown extensions (and files with no extension) fall back to the app's
- * generic file icon so the tree/search/tabs look stays consistent. Folders
- * are NOT handled here — callers keep FolderIcon.
+ * Per-extension file icon rendered with an Atom file-icons glyph (the
+ * file-icons/atom set, bundled via file-icons-js), tinted with the
+ * extension's brand colour from react-file-icon's built-in `defaultStyles`
+ * map plus the supplementary `EXTRA_STYLES` map above. Extensions without a
+ * brand colour fall back to the Atom set's own colour class, and unknown
+ * extensions (and files with no extension) fall back to the app's generic
+ * file icon so the tree/search/tabs look stays consistent. Folders are NOT
+ * handled here — callers keep FolderIcon.
  */
 export function FileTypeIcon({ path, className }: FileTypeIconProps) {
   const extension = getFileExtension(path);
   const style = extension ? getStyleForExtension(extension) : undefined;
+  const brandColor = style?.labelColor;
+  const glyphClass = getGlyphClass(path, brandColor !== undefined);
 
-  if (!style) {
+  if (!glyphClass) {
     return <GenericFileIcon className={cn("shrink-0", className)} />;
   }
 
   return (
     <span
       aria-hidden
-      className={cn("inline-flex shrink-0 items-center", className)}
+      className={cn(
+        "file-type-icon inline-flex shrink-0 items-center justify-center",
+        className,
+      )}
     >
-      <ReactFileIcon extension={extension ?? undefined} {...style} />
+      <i
+        className={cn("icon", glyphClass)}
+        style={brandColor ? { color: brandColor } : undefined}
+      />
     </span>
   );
 }

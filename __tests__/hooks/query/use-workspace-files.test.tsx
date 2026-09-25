@@ -62,7 +62,10 @@ vi.mock("#/api/cloud/conversation-service.api", () => ({
   listCloudConversationFiles: vi.fn(),
 }));
 
-const executeCommandSpy = vi.spyOn(AgentServerRuntimeService, "executeCommand");
+const executeCommandSpy = vi.spyOn(
+  AgentServerRuntimeService,
+  "executeCommandCollectingChunks",
+);
 const listCloudFilesMock = vi.mocked(listCloudConversationFiles);
 
 function makeWrapper() {
@@ -125,6 +128,29 @@ describe("useWorkspaceFiles — local backend", () => {
       expect(result.current.data).toEqual(["hello.txt", "src/index.ts"]),
     );
     expect(executeCommandSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses the chunk-collecting transport so large listings are not truncated", async () => {
+    executeCommandSpy.mockResolvedValue({
+      exit_code: 0,
+      stdout: "./addons/a.gd\n./data/keys.tres\n./zzz.txt\n",
+      stderr: "",
+    });
+
+    const { result } = renderHook(() => useWorkspaceFiles(), {
+      wrapper: makeWrapper(),
+    });
+
+    await waitFor(() =>
+      expect(result.current.data).toEqual([
+        "addons/a.gd",
+        "data/keys.tres",
+        "zzz.txt",
+      ]),
+    );
+    // The find command must go through the chunk-collecting transport, not the
+    // single-shot one that drops everything but the last 1MB chunk.
+    expect(executeCommandSpy.mock.calls[0][2]).toContain("find .");
   });
 });
 

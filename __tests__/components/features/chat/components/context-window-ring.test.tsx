@@ -1,10 +1,15 @@
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import {
   ContextWindowRing,
   CONTEXT_WINDOW_RING_TRACK_ALPHA,
 } from "#/components/features/chat/components/context-window-ring";
-import { COLOR_THEMES } from "#/themes/color-themes";
+import {
+  COLOR_THEMES,
+  DEFAULT_DARK_COLOR_THEME,
+  type ColorThemeKey,
+} from "#/themes/color-themes";
+import { useColorThemeStore } from "#/hooks/use-color-theme";
 
 /**
  * WCAG 2.1 SC 1.4.11 asks 3:1 for non-text contrast. The ring's track carries
@@ -84,16 +89,27 @@ describe("ContextWindowRing", () => {
   /**
    * Read the alpha back out of what the component actually renders, so the
    * contrast cases below describe the shipped track rather than a constant that
-   * could drift away from it.
+   * could drift away from it. The track is theme-aware (light mode mixes the
+   * flipped foreground harder), so an optional theme key is applied to the
+   * shared color-theme store before rendering, then restored.
    */
-  function renderedTrackAlpha(): number {
-    render(<ContextWindowRing percentage={5} />);
-    const { stroke } = screen.getByTestId("context-window-ring-track").style;
-    const percent = stroke.match(/var\(--oh-foreground\)\s+([\d.]+)%/);
-    if (!percent) {
-      throw new Error(`track is not a foreground mix: ${stroke}`);
+  function renderedTrackAlpha(themeKey?: string): number {
+    const previous = useColorThemeStore.getState().theme;
+    try {
+      cleanup();
+      useColorThemeStore.setState({
+        theme: (themeKey as ColorThemeKey | undefined) ?? DEFAULT_DARK_COLOR_THEME,
+      });
+      render(<ContextWindowRing percentage={5} />);
+      const { stroke } = screen.getByTestId("context-window-ring-track").style;
+      const percent = stroke.match(/var\(--oh-foreground\)\s+([\d.]+)%/);
+      if (!percent) {
+        throw new Error(`track is not a foreground mix: ${stroke}`);
+      }
+      return Number(percent[1]) / 100;
+    } finally {
+      useColorThemeStore.setState({ theme: previous });
     }
-    return Number(percent[1]) / 100;
   }
 
   it("renders the alpha it documents", () => {
@@ -108,13 +124,15 @@ describe("ContextWindowRing", () => {
       const hoverFill = composite(HOVER_OVERLAY, surface, HOVER_ALPHA);
 
       it("keeps the track legible against the composer surface", () => {
-        const track = composite(arc, surface, renderedTrackAlpha());
+        const alpha = renderedTrackAlpha(_key);
+        const track = composite(arc, surface, alpha);
 
         expect(contrastRatio(track, surface)).toBeGreaterThanOrEqual(MIN_RATIO);
       });
 
       it("keeps the track legible under the trigger's hover fill", () => {
-        const track = composite(arc, hoverFill, renderedTrackAlpha());
+        const alpha = renderedTrackAlpha(_key);
+        const track = composite(arc, hoverFill, alpha);
 
         expect(contrastRatio(track, hoverFill)).toBeGreaterThanOrEqual(
           MIN_RATIO,
@@ -122,8 +140,7 @@ describe("ContextWindowRing", () => {
       });
 
       it("keeps a neutral arc distinguishable from the track in both states", () => {
-        const alpha = renderedTrackAlpha();
-
+        const alpha = renderedTrackAlpha(_key);
         expect(
           contrastRatio(arc, composite(arc, surface, alpha)),
         ).toBeGreaterThanOrEqual(MIN_RATIO);

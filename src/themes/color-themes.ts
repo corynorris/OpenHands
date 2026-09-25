@@ -289,13 +289,56 @@ export const COLOR_THEMES: Record<ColorThemeKey, ColorThemeDefinition> = {
   },
 };
 
-export const DEFAULT_COLOR_THEME: ColorThemeKey = "openhands-neutral";
+/** Dark-natured themes offered in Settings → App → Dark theme. */
+export const DARK_COLOR_THEME_KEYS: readonly ColorThemeKey[] = [
+  "openhands-neutral",
+  "openhands-deepsea",
+  "openhands-neo",
+];
 
-export const AVAILABLE_COLOR_THEMES = Object.entries(COLOR_THEMES).map(
-  ([key, def]) => ({ key: key as ColorThemeKey, label: def.label }),
-);
+/** Light-natured themes offered in Settings → App → Light theme. */
+export const LIGHT_COLOR_THEME_KEYS: readonly ColorThemeKey[] = [
+  "openhands-light",
+];
+
+/** Default selection for the Dark theme picker (also the app default). */
+export const DEFAULT_DARK_COLOR_THEME: ColorThemeKey = "openhands-neutral";
+
+/** Default selection for the Light theme picker. */
+export const DEFAULT_LIGHT_COLOR_THEME: ColorThemeKey = "openhands-light";
+
+export const DEFAULT_COLOR_THEME: ColorThemeKey = DEFAULT_DARK_COLOR_THEME;
+
+export const AVAILABLE_COLOR_THEME_KEYS: readonly ColorThemeKey[] = [
+  ...DARK_COLOR_THEME_KEYS,
+  ...LIGHT_COLOR_THEME_KEYS,
+];
+
+/** Picker options for Settings → App → Dark theme. */
+export const DARK_COLOR_THEMES = DARK_COLOR_THEME_KEYS.map((key) => ({
+  key,
+  label: COLOR_THEMES[key].label,
+}));
+
+/** Picker options for Settings → App → Light theme. */
+export const LIGHT_COLOR_THEMES = LIGHT_COLOR_THEME_KEYS.map((key) => ({
+  key,
+  label: COLOR_THEMES[key].label,
+}));
+
+export const AVAILABLE_COLOR_THEMES = [
+  ...DARK_COLOR_THEMES,
+  ...LIGHT_COLOR_THEMES,
+];
+
+/** Whether a theme key is light-natured (drives the sidebar toggle + mode). */
+export function isColorThemeLight(key: ColorThemeKey): boolean {
+  return (LIGHT_COLOR_THEME_KEYS as readonly string[]).includes(key);
+}
 
 const STORAGE_KEY = "openhands-color-theme";
+const LIGHT_THEME_STORAGE_KEY = "openhands-light-theme";
+const DARK_THEME_STORAGE_KEY = "openhands-dark-theme";
 
 /** Read the persisted theme key from localStorage, falling back to the default. */
 export function readPersistedColorTheme(): ColorThemeKey {
@@ -307,6 +350,58 @@ export function readPersistedColorTheme(): ColorThemeKey {
     // ignore quota / privacy-mode failures
   }
   return DEFAULT_COLOR_THEME;
+}
+
+/** Read the persisted Light-theme picker selection, falling back to the default. */
+export function readPersistedLightThemeKey(): ColorThemeKey {
+  if (typeof window === "undefined") return DEFAULT_LIGHT_COLOR_THEME;
+  try {
+    const stored = window.localStorage.getItem(LIGHT_THEME_STORAGE_KEY);
+    if (
+      stored &&
+      (LIGHT_COLOR_THEME_KEYS as readonly string[]).includes(stored)
+    ) {
+      return stored as ColorThemeKey;
+    }
+  } catch {
+    // ignore quota / privacy-mode failures
+  }
+  return DEFAULT_LIGHT_COLOR_THEME;
+}
+
+/** Persist the Light-theme picker selection to localStorage. */
+export function persistLightThemeKey(key: ColorThemeKey): void {
+  try {
+    window.localStorage.setItem(LIGHT_THEME_STORAGE_KEY, key);
+  } catch {
+    // ignore
+  }
+}
+
+/** Read the persisted Dark-theme picker selection, falling back to the default. */
+export function readPersistedDarkThemeKey(): ColorThemeKey {
+  if (typeof window === "undefined") return DEFAULT_DARK_COLOR_THEME;
+  try {
+    const stored = window.localStorage.getItem(DARK_THEME_STORAGE_KEY);
+    if (
+      stored &&
+      (DARK_COLOR_THEME_KEYS as readonly string[]).includes(stored)
+    ) {
+      return stored as ColorThemeKey;
+    }
+  } catch {
+    // ignore quota / privacy-mode failures
+  }
+  return DEFAULT_DARK_COLOR_THEME;
+}
+
+/** Persist the Dark-theme picker selection to localStorage. */
+export function persistDarkThemeKey(key: ColorThemeKey): void {
+  try {
+    window.localStorage.setItem(DARK_THEME_STORAGE_KEY, key);
+  } catch {
+    // ignore
+  }
 }
 
 /** Persist the theme key to localStorage. */

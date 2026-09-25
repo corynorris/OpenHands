@@ -13,6 +13,7 @@ import docker from "react-syntax-highlighter/dist/esm/languages/prism/docker";
 import elixir from "react-syntax-highlighter/dist/esm/languages/prism/elixir";
 import erlang from "react-syntax-highlighter/dist/esm/languages/prism/erlang";
 import fsharp from "react-syntax-highlighter/dist/esm/languages/prism/fsharp";
+import gdscript from "./languages/prism-gdscript";
 import go from "react-syntax-highlighter/dist/esm/languages/prism/go";
 import graphql from "react-syntax-highlighter/dist/esm/languages/prism/graphql";
 import groovy from "react-syntax-highlighter/dist/esm/languages/prism/groovy";
@@ -81,6 +82,7 @@ const LANGUAGES: Record<string, unknown> = {
   elixir,
   erlang,
   fsharp,
+  gdscript,
   go,
   graphql,
   groovy,

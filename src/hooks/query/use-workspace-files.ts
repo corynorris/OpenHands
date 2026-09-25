@@ -92,13 +92,14 @@ function useLocalWorkspaceFiles(enabled: boolean): WorkspaceFilesResult {
       ignorePatterns,
     ],
     queryFn: async () => {
-      const result = await AgentServerRuntimeService.executeCommand(
-        conversationUrl,
-        sessionApiKey,
-        buildListCommand(ignorePatterns),
-        workingDir,
-        30,
-      );
+      const result =
+        await AgentServerRuntimeService.executeCommandCollectingChunks(
+          conversationUrl,
+          sessionApiKey,
+          buildListCommand(ignorePatterns),
+          workingDir,
+          30,
+        );
 
       if (result.exit_code !== 0) {
         throw new Error(
