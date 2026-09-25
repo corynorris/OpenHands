@@ -5,6 +5,7 @@ import { useRuntimeIsReady } from "#/hooks/use-runtime-is-ready";
 import { transformVSCodeUrl } from "#/utils/vscode-url-helper";
 import { useBatchAppConversations } from "./use-batch-app-conversations";
 import { useBatchSandboxes } from "./use-batch-sandboxes";
+import { useConfig } from "#/hooks/query/use-config";
 
 interface VSCodeUrlResult {
   url: string | null;
@@ -20,6 +21,13 @@ export const useUnifiedVSCodeUrl = () => {
   const { conversationId } = useConversationId();
   const runtimeIsReady = useRuntimeIsReady({ allowAgentError: true });
 
+  // Sandbox URL pattern (OH_SANDBOX_CONTAINER_URL_PATTERN). Included in the
+  // query key so the VSCode URL is re-resolved once config lands —
+  // transformVSCodeUrl rewrites against the pattern via module config.
+  const config = useConfig();
+  const sandboxContainerUrlPattern =
+    config.data?.sandbox_container_url_pattern ?? null;
+
   // Fetch V1 app conversation to get sandbox_id
   const appConversationsQuery = useBatchAppConversations(
     conversationId ? [conversationId] : [],
@@ -32,7 +40,13 @@ export const useUnifiedVSCodeUrl = () => {
   const sandbox = sandboxesQuery?.data?.[0];
 
   const mainQuery = useQuery<VSCodeUrlResult>({
-    queryKey: ["unified", "vscode_url", conversationId, sandbox],
+    queryKey: [
+      "unified",
+      "vscode_url",
+      conversationId,
+      sandbox,
+      sandboxContainerUrlPattern,
+    ],
     queryFn: async () => {
       if (!conversationId) throw new Error("No conversation ID");
 

@@ -64,4 +64,13 @@ export interface WebClientConfig {
   jira_dc_service_account_email?: string | null;
   /** Non-secret Jira DC service-account env config error, if any. */
   jira_dc_service_account_config_error?: string | null;
+  /**
+   * External URL pattern for sandbox services (OH_SANDBOX_CONTAINER_URL_PATTERN),
+   * e.g. "https://openhands-{port}.example.com". "{port}" is replaced with the
+   * sandbox service's internal port (8000, 8001, 8011, 8012). Null when unset or
+   * when the pattern points at localhost (the default).
+   */
+  sandbox_container_url_pattern?: string | null;
+  /** Public web URL of this instance (OH_WEB_URL). */
+  web_url?: string | null;
 }

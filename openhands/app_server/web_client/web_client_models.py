@@ -48,6 +48,15 @@ class WebClientConfig(DiscriminatedUnionMixin):
     recaptcha_site_key: str | None
     faulty_models: list[str]
     error_message: str | None
+    # External URL pattern for sandbox services (OH_SANDBOX_CONTAINER_URL_PATTERN),
+    # e.g. ``https://openhands-{port}.example.com``. ``{port}`` is replaced with the
+    # sandbox service's internal port (8000, 8001, 8011, 8012). Null when unset or
+    # when the pattern points at localhost (the default), in which case the frontend
+    # keeps its localhost -> window.location hostname rewriting.
+    sandbox_container_url_pattern: str | None = None
+    # Public web URL of this instance (OH_WEB_URL), used by the frontend as the
+    # canonical browser origin when the app is served behind a reverse proxy.
+    web_url: str | None = None
     updated_at: datetime
     github_app_slug: str | None
     gitlab_enabled: bool = False

@@ -1,3 +1,76 @@
+import {
+  applySandboxPattern,
+  getBrowserHost,
+  getBrowserHostname,
+  getSandboxContainerUrlPattern,
+  isLocalhostHostname,
+  isUsableSandboxPattern,
+} from "./sandbox-url-config";
+
+interface SandboxBase {
+  host: string;
+  /**
+   * Scheme of the sandbox URL pattern when the base host was derived from
+   * OH_SANDBOX_CONTAINER_URL_PATTERN (https/http), otherwise null. When set,
+   * callers must derive the protocol from this scheme (https -> wss) rather
+   * than from the browser's location, because the sandbox origin may differ
+   * from the page origin.
+   */
+  patternScheme: "https" | "http" | null;
+}
+
+/**
+ * Resolves the base host (and, when applicable, the scheme) for sandbox URLs.
+ *
+ * The conversation URL (e.g. `http://localhost:8000/api/conversations/123`) is
+ * the internal address of the sandbox's agent-server. When
+ * OH_SANDBOX_CONTAINER_URL_PATTERN is configured to a non-localhost origin,
+ * the internal port (8000) is substituted into the pattern and the pattern's
+ * scheme drives protocol selection — the external URL is
+ * `https://openhands-8000.example.com/...` with NO port appended to the public
+ * hostname. Without a pattern, the legacy behavior is preserved: localhost is
+ * rewritten to the browser's hostname with the internal port kept (used when
+ * sandbox ports are published directly on the OpenHands host).
+ */
+function resolveSandboxBase(
+  conversationUrl: string | null | undefined,
+): SandboxBase {
+  if (conversationUrl && !conversationUrl.startsWith("/")) {
+    try {
+      const url = new URL(conversationUrl);
+      const urlHostname = url.hostname;
+      const pattern = getSandboxContainerUrlPattern();
+
+      // Pattern-configured deployments: map internal sandbox ports to the
+      // externally reachable host from the pattern.
+      if (
+        isLocalhostHostname(urlHostname) &&
+        isUsableSandboxPattern(pattern) &&
+        url.port
+      ) {
+        const mapped = applySandboxPattern(pattern as string, url.port);
+        if (mapped) {
+          return { host: mapped.host, patternScheme: mapped.scheme };
+        }
+      }
+
+      // Legacy behavior: localhost -> browser hostname, keeping the port.
+      const browserHostname = getBrowserHostname();
+      if (
+        browserHostname &&
+        isLocalhostHostname(urlHostname) &&
+        !isLocalhostHostname(browserHostname)
+      ) {
+        return { host: `${browserHostname}:${url.port}`, patternScheme: null };
+      }
+      return { host: url.host, patternScheme: null };
+    } catch {
+      return { host: getBrowserHost(), patternScheme: null };
+    }
+  }
+  return { host: getBrowserHost(), patternScheme: null };
+}
+
 /**
  * Extracts the base host from conversation URL
  * @param conversationUrl The conversation URL containing host/port (e.g., "http://localhost:3000/api/conversations/123")
@@ -6,28 +79,7 @@
 export function extractBaseHost(
   conversationUrl: string | null | undefined,
 ): string {
-  if (conversationUrl && !conversationUrl.startsWith("/")) {
-    try {
-      const url = new URL(conversationUrl);
-      // If the conversation URL points to localhost but we're accessing from external,
-      // use the browser's hostname with the conversation URL's port
-      const urlHostname = url.hostname;
-      const browserHostname =
-        window.location.hostname ?? window.location.host?.split(":")[0];
-      if (
-        browserHostname &&
-        (urlHostname === "localhost" || urlHostname === "127.0.0.1") &&
-        browserHostname !== "localhost" &&
-        browserHostname !== "127.0.0.1"
-      ) {
-        return `${browserHostname}:${url.port}`;
-      }
-      return url.host; // e.g., "localhost:3000"
-    } catch {
-      return window.location.host;
-    }
-  }
-  return window.location.host;
+  return resolveSandboxBase(conversationUrl).host;
 }
 
 /**
@@ -55,6 +107,22 @@ export function extractPathPrefix(
   }
 }
 
+function httpProtocolFor(
+  patternScheme: "https" | "http" | null,
+): "https:" | "http:" {
+  if (patternScheme) {
+    return patternScheme === "https" ? "https:" : "http:";
+  }
+  return window.location.protocol === "https:" ? "https:" : "http:";
+}
+
+function wsProtocolFor(patternScheme: "https" | "http" | null): "wss:" | "ws:" {
+  if (patternScheme) {
+    return patternScheme === "https" ? "wss:" : "ws:";
+  }
+  return window.location.protocol === "https:" ? "wss:" : "ws:";
+}
+
 /**
  * Builds the HTTP base URL for V1 API calls
  * @param conversationUrl The conversation URL containing host/port
@@ -63,10 +131,10 @@ export function extractPathPrefix(
 export function buildHttpBaseUrl(
   conversationUrl: string | null | undefined,
 ): string {
-  const baseHost = extractBaseHost(conversationUrl);
+  const { host, patternScheme } = resolveSandboxBase(conversationUrl);
   const pathPrefix = extractPathPrefix(conversationUrl);
-  const protocol = window.location.protocol === "https:" ? "https:" : "http:";
-  return `${protocol}//${baseHost}${pathPrefix}`;
+  const protocol = httpProtocolFor(patternScheme);
+  return `${protocol}//${host}${pathPrefix}`;
 }
 
 /**
@@ -83,13 +151,17 @@ export function buildWebSocketUrl(
     return null;
   }
 
-  const baseHost = extractBaseHost(conversationUrl);
+  const { host, patternScheme } = resolveSandboxBase(conversationUrl);
   const pathPrefix = extractPathPrefix(conversationUrl);
 
   // Build WebSocket URL: ws://host:port[/path-prefix]/sockets/events/{conversationId}
   // The path prefix (e.g., /runtime/55313) is needed for proxy deployments
   // Note: Query params should be passed via the useWebSocket hook options
-  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+  //
+  // When the base host comes from the sandbox URL pattern, the protocol must
+  // follow the pattern's scheme (https -> wss, http -> ws) because the sandbox
+  // origin may be a different hostname than the page.
+  const protocol = wsProtocolFor(patternScheme);
 
-  return `${protocol}//${baseHost}${pathPrefix}/sockets/events/${conversationId}`;
+  return `${protocol}//${host}${pathPrefix}/sockets/events/${conversationId}`;
 }

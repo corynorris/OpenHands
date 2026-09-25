@@ -30,6 +30,43 @@ def _get_recaptcha_site_key() -> str | None:
 _OSS_POSTHOG_KEY = 'phc_3ESMmY9SgqEAGBB6sMGK5ayYHkeUuknH2vP6FmWH9RA'
 
 
+def _get_web_url() -> str | None:
+    """Get the public web URL of this instance (OH_WEB_URL).
+
+    Falls back to the legacy unprefixed name for backwards compatibility.
+    """
+    url = os.getenv('OH_WEB_URL', os.getenv('WEB_URL', '')).strip()
+    return url if url else None
+
+
+def _get_sandbox_container_url_pattern(config) -> str | None:
+    """Get the externally reachable sandbox URL pattern for the frontend.
+
+    Returns the configured ``OH_SANDBOX_CONTAINER_URL_PATTERN`` (e.g.
+    ``https://openhands-{port}.example.com``) when it maps sandbox ports to a
+    non-localhost origin. Returns None when the pattern is unset or points at
+    localhost (the default ``http://localhost:{port}``), in which case the
+    frontend keeps its existing localhost -> window.location hostname rewriting.
+    """
+    from openhands.app_server.sandbox.docker_sandbox_service import (
+        DockerSandboxServiceInjector,
+    )
+
+    sandbox = config.sandbox
+    if sandbox is None or not isinstance(sandbox, DockerSandboxServiceInjector):
+        return None
+    pattern = sandbox.container_url_pattern
+    if not pattern:
+        return None
+    try:
+        hostname = urlparse(pattern).hostname
+    except ValueError:
+        return None
+    if not hostname or hostname in ('localhost', '127.0.0.1', '0.0.0.0'):
+        return None
+    return pattern
+
+
 def _get_posthog_client_key() -> str:
     """Get PostHog client key from environment variable.
 
@@ -256,5 +293,7 @@ class DefaultWebClientConfigInjector(WebClientConfigInjector):
                 self.jira_dc_service_account_config_error
             ),
             acp_providers=self.acp_providers,
+            sandbox_container_url_pattern=_get_sandbox_container_url_pattern(config),
+            web_url=_get_web_url(),
         )
         return result

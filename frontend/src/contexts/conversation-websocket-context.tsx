@@ -55,6 +55,7 @@ import useMetricsStore from "#/stores/metrics-store";
 import { I18nKey } from "#/i18n/declaration";
 import { useConversationHistory } from "#/hooks/query/use-conversation-history";
 import { setConversationState } from "#/utils/conversation-local-storage";
+import { useConfig } from "#/hooks/query/use-config";
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
 export type V1_WebSocketConnectionState =
@@ -122,6 +123,12 @@ export function ConversationWebSocketProvider({
   >(null);
 
   const { setPlanContent } = useConversationStore();
+
+  // Web-client config (OH_SANDBOX_CONTAINER_URL_PATTERN / OH_WEB_URL).
+  // Tracked so the WebSocket URL memo rebuilds once config lands — the URL
+  // helpers read the sandbox URL pattern from module-level config synced by
+  // OptionService.getConfig.
+  const config = useConfig();
 
   // Hook for reading conversation file
   const { mutate: readConversationFile } = useReadConversationFile();
@@ -198,7 +205,12 @@ export function ConversationWebSocketProvider({
       return null;
     }
     return buildWebSocketUrl(conversationId, conversationUrl);
-  }, [conversationId, conversationUrl]);
+  }, [
+    conversationId,
+    conversationUrl,
+    config?.data?.sandbox_container_url_pattern,
+    config?.data?.web_url,
+  ]);
 
   const planningAgentWsUrl = useMemo(() => {
     if (!subConversations?.length) {
@@ -219,7 +231,11 @@ export function ConversationWebSocketProvider({
       planningAgentConversation.id,
       planningAgentConversation.conversation_url,
     );
-  }, [subConversations]);
+  }, [
+    subConversations,
+    config?.data?.sandbox_container_url_pattern,
+    config?.data?.web_url,
+  ]);
 
   // Merged connection state - reflects combined status of both connections
   const connectionState = useMemo<V1_WebSocketConnectionState>(() => {

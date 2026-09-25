@@ -347,10 +347,16 @@ def config_from_env() -> AppServerConfig:
                 docker_sandbox_kwargs['host_port'] = int(
                     os.environ['SANDBOX_HOST_PORT']
                 )
-            if os.getenv('SANDBOX_CONTAINER_URL_PATTERN'):
-                docker_sandbox_kwargs['container_url_pattern'] = os.environ[
-                    'SANDBOX_CONTAINER_URL_PATTERN'
-                ]
+            # OH_SANDBOX_CONTAINER_URL_PATTERN is the documented name (see
+            # DockerSandboxServiceInjector.container_url_pattern); keep the
+            # unprefixed spelling as a fallback for legacy deployments.
+            sandbox_container_url_pattern = os.getenv(
+                'OH_SANDBOX_CONTAINER_URL_PATTERN'
+            ) or os.getenv('SANDBOX_CONTAINER_URL_PATTERN')
+            if sandbox_container_url_pattern:
+                docker_sandbox_kwargs['container_url_pattern'] = (
+                    sandbox_container_url_pattern
+                )
             # Allow configuring sandbox startup grace period
             # This is useful for slower machines or cloud environments where
             # the agent-server container takes longer to initialize
