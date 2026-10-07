@@ -7,14 +7,33 @@ import {
 } from "#/api/backend-registry/active-store";
 import type { Backend } from "#/api/backend-registry/types";
 
-const { mockGetSkills } = vi.hoisted(() => ({
+const { mockGetSkills, MOCK_PUBLIC_CATALOG } = vi.hoisted(() => ({
   mockGetSkills: vi.fn(),
+  MOCK_PUBLIC_CATALOG: [
+    {
+      name: "mock-public-skill",
+      description: "A mock public skill",
+      triggers: ["mock"],
+      content: "mock content",
+    },
+    {
+      name: "another-public-skill",
+      description: "Another one",
+      triggers: [],
+      content: "more content",
+      license: "MIT",
+    },
+  ],
 }));
 
 vi.mock("@openhands/typescript-client/clients", () => ({
   SkillsClient: vi.fn(function SkillsClientMock() {
     return { getSkills: mockGetSkills };
   }),
+}));
+
+vi.mock("@openhands/extensions/skills", () => ({
+  SKILLS_CATALOG: MOCK_PUBLIC_CATALOG,
 }));
 
 import SkillsService from "#/api/skills-service";
@@ -42,7 +61,7 @@ afterEach(() => {
 });
 
 describe("SkillsService.getSkills against the agent-server backend", () => {
-  it("requests only user/project skills from agent-server (load_public: false) and returns only those", async () => {
+  it("requests only user/project skills from agent-server (load_public: false) and appends the bundled public catalog", async () => {
     const userSkill = {
       name: "my-custom-skill",
       type: "knowledge",
@@ -67,17 +86,24 @@ describe("SkillsService.getSkills against the agent-server backend", () => {
       load_org: false,
     });
 
-    // Built-ins were removed: the result is exactly the agent-server list,
-    // with no bundled public catalog appended.
-    expect(skills).toHaveLength(1);
+    // Result = local skills first, then all bundled public skills.
     expect(skills[0]?.name).toBe("my-custom-skill");
+    expect(skills).toHaveLength(1 + MOCK_PUBLIC_CATALOG.length);
+
+    // Every public skill from the bundled catalog is present.
+    const publicNames = skills.slice(1).map((s) => s.name);
+    for (const entry of MOCK_PUBLIC_CATALOG) {
+      expect(publicNames).toContain(entry.name);
+    }
+    expect(skills.slice(1).every((s) => s.source === "public")).toBe(true);
   });
 
-  it("returns an empty list when agent-server is unreachable (no bundled fallback)", async () => {
+  it("returns only bundled public skills when agent-server is unreachable", async () => {
     mockGetSkills.mockRejectedValue(new Error("ECONNREFUSED"));
 
     const skills = await SkillsService.getSkills();
 
-    expect(skills).toHaveLength(0);
+    expect(skills).toHaveLength(MOCK_PUBLIC_CATALOG.length);
+    expect(skills.every((s) => s.source === "public")).toBe(true);
   });
 });

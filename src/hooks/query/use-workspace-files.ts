@@ -11,49 +11,19 @@ import { useActiveConversation } from "#/hooks/query/use-active-conversation";
 import { useOptionalConversationId } from "#/hooks/use-conversation-id";
 import { useRuntimeIsReady } from "#/hooks/use-runtime-is-ready";
 import { getGitPath } from "#/utils/get-git-path";
-import { useWorkspaceIgnoreStore } from "#/stores/workspace-ignore-store";
+import { useWorkspaceFileDiscovery } from "./use-workspace-file-discovery";
 import {
-  filterIgnoredPaths,
-  getFindPrunePatterns,
-} from "#/utils/workspace-ignore";
+  buildWorkspaceFileListCommand,
+  parseWorkspaceFileList,
+} from "#/utils/workspace-file-discovery";
 
-// Cap at a generous bound. The tree renders lazily (only expanded folders
-// mount nodes), so a large flat path list is cheap; the cap only guards
-// against pathological repos.
-const MAX_FILES = 100000;
+// Cap the number of files we render so a giant repo doesn't freeze the UI.
+const MAX_FILES = 2000;
 
 export interface WorkspaceFilesResult {
   data: string[] | undefined;
   isLoading: boolean;
-}
-
-// Directory names that we never want to descend into when listing files.
-const EXCLUDED_DIRS = [
-  ".git",
-  "node_modules",
-  ".venv",
-  "venv",
-  "__pycache__",
-  "dist",
-  "build",
-  ".next",
-  ".cache",
-  ".pytest_cache",
-  ".mypy_cache",
-  ".turbo",
-  ".parcel-cache",
-  "target",
-];
-
-// Build a `find` invocation that lists files relative to the workspace root.
-// User-configured ignore patterns that are plain directory names are appended
-// to the prune expression so ignored folders are never even walked.
-function buildListCommand(ignorePatterns: string[]): string {
-  const ignoredDirs = getFindPrunePatterns(ignorePatterns);
-  const pruneExpr = [...EXCLUDED_DIRS, ...ignoredDirs]
-    .map((dir) => `-name '${dir}' -prune`)
-    .join(" -o ");
-  return `find . \\( ${pruneExpr} \\) -o -type f -print 2>/dev/null | sort | head -n ${MAX_FILES}`;
+  isTruncated?: boolean;
 }
 
 function normalizePath(path: string): string {
@@ -74,32 +44,33 @@ function normalizePath(path: string): string {
  */
 function useLocalWorkspaceFiles(enabled: boolean): WorkspaceFilesResult {
   const { data: conversation } = useActiveConversation();
-  const runtimeIsReady = useRuntimeIsReady();
-  const ignorePatterns = useWorkspaceIgnoreStore((state) => state.patterns);
+  const runtimeIsReady = useRuntimeIsReady({ allowAgentError: true });
 
   const conversationId = conversation?.id;
   const conversationUrl = conversation?.conversation_url;
   const sessionApiKey = conversation?.session_api_key;
   const workingDir = conversation?.workspace?.working_dir?.trim();
+  const discovery = useWorkspaceFileDiscovery(enabled ? workingDir : undefined);
+  const { options } = discovery;
 
-  const query = useQuery<string[]>({
+  const query = useQuery({
     queryKey: [
       "workspace-files",
       conversationId,
       conversationUrl,
       sessionApiKey,
       workingDir,
-      ignorePatterns,
+      options,
     ],
     queryFn: async () => {
-      const result =
-        await AgentServerRuntimeService.executeCommandCollectingChunks(
-          conversationUrl,
-          sessionApiKey,
-          buildListCommand(ignorePatterns),
-          workingDir,
-          30,
-        );
+      const result = await AgentServerRuntimeService.executeCommand(
+        conversationUrl,
+        sessionApiKey,
+        buildWorkspaceFileListCommand(options),
+        workingDir,
+        30,
+        conversationId,
+      );
 
       if (result.exit_code !== 0) {
         throw new Error(
@@ -107,27 +78,25 @@ function useLocalWorkspaceFiles(enabled: boolean): WorkspaceFilesResult {
         );
       }
 
-      const lines = result.stdout
-        .split(/\r?\n/)
-        .map((line) => line.trim())
-        .filter(Boolean)
-        .map(normalizePath);
-
-      // Client-side filter catches basename-glob patterns and anything the
-      // find prune didn't (both are cheap here).
-      const filtered = filterIgnoredPaths(lines, ignorePatterns);
-
-      // Defensive: keep results unique and bounded.
-      return Array.from(new Set(filtered)).slice(0, MAX_FILES);
+      return parseWorkspaceFileList(result.stdout, options.maxFiles);
     },
-    enabled: enabled && runtimeIsReady && !!conversationId && !!workingDir,
+    enabled:
+      enabled &&
+      runtimeIsReady &&
+      !!conversationId &&
+      !!workingDir &&
+      !discovery.isLoading,
     retry: false,
     staleTime: 1000 * 30,
     gcTime: 1000 * 60 * 5,
     meta: { disableToast: true },
   });
 
-  return { data: query.data, isLoading: query.isLoading };
+  return {
+    data: query.data?.paths,
+    isLoading: discovery.isLoading || query.isLoading,
+    isTruncated: query.data?.isTruncated ?? false,
+  };
 }
 
 /**
@@ -150,8 +119,7 @@ function useCloudWorkspaceFiles(enabled: boolean): WorkspaceFilesResult {
   // disabled — and never fire — whenever that data is null or still loading.
   const { conversationId } = useOptionalConversationId();
   const { data: conversation } = useActiveConversation();
-  const runtimeIsReady = useRuntimeIsReady();
-  const ignorePatterns = useWorkspaceIgnoreStore((state) => state.patterns);
+  const runtimeIsReady = useRuntimeIsReady({ allowAgentError: true });
 
   const selectedRepository = conversation?.selected_repository;
   const workingDir = conversation?.workspace?.working_dir?.trim();
@@ -163,20 +131,14 @@ function useCloudWorkspaceFiles(enabled: boolean): WorkspaceFilesResult {
   const absolutePath = gitPath.startsWith("/") ? gitPath : `/${gitPath}`;
 
   const query = useQuery<string[]>({
-    queryKey: [
-      "workspace-files-cloud",
-      conversationId,
-      absolutePath,
-      ignorePatterns,
-    ],
+    queryKey: ["workspace-files-cloud", conversationId, absolutePath],
     queryFn: async () => {
       const files = await listCloudConversationFiles(
         conversationId!,
         absolutePath,
       );
       const normalized = files.map(normalizePath).filter(Boolean);
-      const filtered = filterIgnoredPaths(normalized, ignorePatterns);
-      return Array.from(new Set(filtered)).slice(0, MAX_FILES);
+      return Array.from(new Set(normalized)).slice(0, MAX_FILES);
     },
     enabled: enabled && runtimeIsReady && !!conversationId,
     retry: false,
@@ -205,11 +167,6 @@ function useCloudWorkspaceFiles(enabled: boolean): WorkspaceFilesResult {
  * provider isn't in scope), which would run the local bash path against a cloud
  * backend: `executeCommand` then POSTs to the removed `/api/cloud-proxy` (405)
  * and the cloud `/files` call never fires.
- *
- * @param enabled When false the underlying query stays disabled. Defaults to
- * true so existing callers (Files tab) are unchanged; the Ctrl+P file
- * switcher passes a flag so the expensive workspace enumeration only runs
- * after the switcher is opened for the first time.
  */
 export function useWorkspaceFiles(enabled = true): WorkspaceFilesResult {
   const snapshot = useSyncExternalStore(

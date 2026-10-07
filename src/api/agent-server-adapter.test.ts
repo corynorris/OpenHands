@@ -332,8 +332,10 @@ describe("buildStartConversationRequest", () => {
     expect(skillNames).not.toContain("disabled-custom");
     // Skills already on the agent context are user-authored and stay opt-out.
     expect(skillNames).toContain("enabled-custom");
-    // Built-in skills were removed; only custom skills can appear.
-    expect(skillNames).not.toContain("add-skill");
+    // No `enabled_skills` on the settings means the curated default applies:
+    // `add-skill` is flagged `defaultEnabled` in the catalog, `add-javadoc` is
+    // not, and shipping every catalog skill is what OpenHands#16302 reported.
+    expect(skillNames).toContain("add-skill");
     expect(skillNames).not.toContain("add-javadoc");
 
     expect(payload.agent_settings?.agent_context?.disabled_skills).toEqual([
@@ -367,14 +369,69 @@ describe("buildStartConversationRequest", () => {
     expect(skillNames).not.toContain("disabled-custom");
     // Skills already on the agent context are user-authored and stay opt-out.
     expect(skillNames).toContain("enabled-custom");
-    // Built-in skills were removed; only custom skills can appear.
-    expect(skillNames).not.toContain("add-skill");
+    // No `enabled_skills` on the settings means the curated default applies:
+    // `add-skill` is flagged `defaultEnabled` in the catalog, `add-javadoc` is
+    // not, and shipping every catalog skill is what OpenHands#16302 reported.
+    expect(skillNames).toContain("add-skill");
     expect(skillNames).not.toContain("add-javadoc");
 
     expect(payload.agent_settings?.agent_context?.disabled_skills).toEqual([
       "agent-memory",
       "disabled-custom",
     ]);
+  });
+
+  it("loads a catalog skill the opening slash command invokes", () => {
+    // An automation card fills the chat input with the skill's own command
+    // (`findAutomationCommand`), and 18 of the catalog's 24 slash commands
+    // belong to skills that are off by default — without this the card would
+    // silently do nothing.
+    const settings = makeSettings({
+      agent_kind: "openhands",
+      llm: { model: "litellm_proxy/openai/gpt-5.5", api_key: "sk-test" },
+    });
+
+    const payload = buildStartConversationRequest({
+      settings,
+      query: "/standup-digest:setup",
+    });
+
+    expect(getAgentContextSkillNames(payload)).toContain(
+      "slack-standup-digest",
+    );
+  });
+
+  it("does not admit a skill named mid-sentence rather than invoked", () => {
+    const settings = makeSettings({
+      agent_kind: "openhands",
+      llm: { model: "litellm_proxy/openai/gpt-5.5", api_key: "sk-test" },
+    });
+
+    const payload = buildStartConversationRequest({
+      settings,
+      query: "tell me what /standup-digest:setup would do",
+    });
+
+    expect(getAgentContextSkillNames(payload)).not.toContain(
+      "slack-standup-digest",
+    );
+  });
+
+  it("lets an invoked skill override a stored deny entry for that conversation", () => {
+    const settings = makeSettings({
+      agent_kind: "openhands",
+      llm: { model: "litellm_proxy/openai/gpt-5.5", api_key: "sk-test" },
+    });
+    settings.disabled_skills = ["slack-standup-digest"];
+
+    const payload = buildStartConversationRequest({
+      settings,
+      query: "/standup-digest:setup",
+    });
+
+    expect(getAgentContextSkillNames(payload)).toContain(
+      "slack-standup-digest",
+    );
   });
 });
 
@@ -602,9 +659,11 @@ describe("buildStartPlanningConversationRequestWithEncryptedSettings", () => {
     expect(payload.max_iterations).toBe(500);
   });
 
-  it("excludes catalog skills from the planner's agent context", async () => {
-    // Built-in skills were removed, so the planner context only carries the
-    // custom skills that survive the deny-list.
+  it("applies the full skill enablement to the planner's agent context, mirroring the code agent", async () => {
+    // Both lists, because they cover different populations (#16302): the
+    // allow-list gates the bundled catalog, the deny-list still wins over it.
+    // `add-javadoc` is a catalog skill outside the recommended defaults, so
+    // it only loads because the allow-list names it.
     vi.mocked(SettingsService.getSettingsForConversation).mockResolvedValue({
       ...globallyActiveSettings,
       skillEnablement: {
@@ -621,7 +680,7 @@ describe("buildStartPlanningConversationRequestWithEncryptedSettings", () => {
 
     const skillNames = getPlannerAgentContextSkillNames(payload);
     expect(skillNames).not.toContain("agent-memory");
-    expect(skillNames).not.toContain("add-javadoc");
+    expect(skillNames).toContain("add-javadoc");
   });
 
   it("threads executionRuntime through to DockerExecutionWorkspace selection", async () => {
@@ -653,6 +712,22 @@ describe("buildStartPlanningConversationRequestWithEncryptedSettings", () => {
 });
 
 describe("buildStartConversationRequest — agentProfileId path", () => {
+  it("appends the saved global suffix to a profile launch", () => {
+    const payload = buildStartConversationRequest({
+      settings: makeSettings({
+        agent_kind: "openhands",
+        agent_context: { system_message_suffix: "MARKER-GLOBAL-RULES" },
+      }),
+      agentProfileId: "profile-xyz",
+      agentProfileKind: "openhands",
+    });
+
+    expect(payload.agent_launch_additions).toEqual({
+      system_message_suffix_append: "MARKER-GLOBAL-RULES",
+    });
+    expect(payload.agent_settings).toBeUndefined();
+  });
+
   it("sends agent_profile_id and omits agent_settings (mutually exclusive)", () => {
     const settings = makeSettings({
       agent_kind: "openhands",
@@ -667,6 +742,7 @@ describe("buildStartConversationRequest — agentProfileId path", () => {
 
     expect(payload.agent_profile_id).toBe("profile-xyz");
     expect(payload.agent_settings).toBeUndefined();
+    expect(payload.agent_launch_additions).toBeUndefined();
     expect(payload.client_tools.map((tool) => tool.name)).toEqual([
       CANVAS_UI_CLIENT_TOOL_NAME,
       LAUNCH_CHILD_CONVERSATION_TOOL_NAME,

@@ -11,7 +11,8 @@ import { SettingsInput } from "#/components/features/settings/settings-input";
 import { I18nKey } from "#/i18n/declaration";
 import { LanguageInput } from "#/components/features/settings/app-settings/language-input";
 import { ThemeInput } from "#/components/features/settings/app-settings/theme-input";
-import { IgnorePatternsInput } from "#/components/features/settings/app-settings/ignore-patterns-input";
+import { GettingStartedChecklistSwitch } from "#/components/features/settings/app-settings/getting-started-checklist-switch";
+import { VoiceInputSettings } from "#/components/features/settings/app-settings/voice-input-settings";
 import {
   displayErrorToast,
   displaySuccessToast,
@@ -24,6 +25,7 @@ import { useLlmProfiles } from "#/hooks/query/use-llm-profiles";
 import { useFreeModels } from "#/hooks/query/use-free-models";
 import { useActiveBackend } from "#/contexts/active-backend-context";
 import { formatModelNameForDisplay } from "#/utils/format-model-name";
+import { getLockedCloudHost } from "#/api/agent-server-config";
 
 const AUTOMATIC_TITLE_LLM_PROFILE_KEY = "__automatic__";
 
@@ -224,7 +226,7 @@ export function AppSettingsScreen() {
             {t(I18nKey.SETTINGS$SOUND_NOTIFICATIONS)}
           </SettingsSwitch>
 
-          <IgnorePatternsInput />
+          <GettingStartedChecklistSwitch />
 
           <div className="border-t border-border pt-6 mt-2">
             <h3 className="text-lg font-medium mb-2">
@@ -250,13 +252,18 @@ export function AppSettingsScreen() {
                 );
               }}
             />
-            <NavigationLink
-              to="/settings/llm"
-              className="mt-3 inline-block text-sm text-primary hover:underline"
-            >
-              {t(I18nKey.SETTINGS$MANAGE_LLM_PROFILES)}
-            </NavigationLink>
+            {/* Locked-to-Cloud blocks the Canvas LLM page (OHE-3457). */}
+            {getLockedCloudHost() === null && (
+              <NavigationLink
+                to="/settings/llm"
+                className="mt-3 inline-block text-sm text-primary hover:underline"
+              >
+                {t(I18nKey.SETTINGS$MANAGE_LLM_PROFILES)}
+              </NavigationLink>
+            )}
           </div>
+
+          <VoiceInputSettings />
 
           <div className="border-t border-border pt-6 mt-2">
             <h3 className="text-lg font-medium mb-2">

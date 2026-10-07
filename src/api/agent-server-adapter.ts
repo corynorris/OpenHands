@@ -4,6 +4,7 @@ import type {
   HookConfig,
 } from "@openhands/typescript-client";
 import { ServerClient } from "@openhands/typescript-client/clients";
+import { SKILLS_CATALOG } from "@openhands/extensions/skills";
 import { DEFAULT_SETTINGS } from "#/services/settings";
 import { ExecutionStatus } from "#/types/agent-server/core";
 import { AgentKind, Settings, SettingsValue } from "#/types/settings";
@@ -15,7 +16,6 @@ import {
 import { getAgentServerClientOptions } from "./agent-server-client-options";
 import {
   getCachedAgentServerInfo,
-  isAgentServerToolAvailable,
   type AgentServerInfo,
 } from "./agent-server-compatibility";
 import { getAgentServerWorkingDir } from "./agent-server-config";
@@ -31,10 +31,13 @@ import {
 } from "./conversation-service/agent-server-conversation-service.types";
 import { combineUsageMetrics } from "#/utils/conversation-metrics";
 import {
+  buildSkillEnablementFilter,
+  findInvokedCatalogSkill,
   toSkillEnablement,
   type SkillEnablement,
 } from "#/utils/skill-enablement";
 import SettingsService from "./settings-service/settings-service.api";
+import MetaProfilesService from "./meta-profiles-service/meta-profiles-service.api";
 import { getStoredConversationMetadata } from "./conversation-metadata-store";
 import LLMSubscriptionService from "./llm-subscription-service";
 import {
@@ -139,19 +142,12 @@ export interface DirectConversationInfo {
   sub_conversation_ids?: string[] | null;
 }
 
-const DEFAULT_TOOL_NAMES = ["terminal", "file_editor", "task_tracker"];
-const BROWSER_TOOL_SET_NAME = "browser_tool_set";
-const TASK_TOOL_SET_NAME = "task_tool_set";
 // Falls back to the same default the code agent uses when the user has not
 // configured `conversation_settings.max_iterations` (see buildConfiguredConversationSettings).
 const DEFAULT_MAX_ITERATIONS = 500;
 
 function resolveMaxIterations(value: unknown): number {
   return typeof value === "number" ? value : DEFAULT_MAX_ITERATIONS;
-}
-
-function browserToolsEnabled() {
-  return import.meta.env.VITE_ENABLE_BROWSER_TOOLS !== "false";
 }
 
 /**
@@ -344,6 +340,42 @@ export function buildRuntimeServicesSystemSuffix(
   lines.push("</RUNTIME_SERVICES>");
 
   return lines.join("\n");
+}
+
+/**
+ * System-message instruction appended when the user enables "Run on first
+ * message" for the Model Router. With an active meta-profile the
+ * agent-server attaches the ``route_task_to_model`` tool; this suffix tells
+ * the agent to call it with the *first* user message before doing anything
+ * else, so the opening request is always routed to the classifier-selected
+ * model. Subsequent messages are left to the agent's own judgment.
+ *
+ * Only emitted when ``runAtStart`` is on AND a meta-profile is active
+ * (``hasActiveRouter``): with no active meta-profile the agent-server does
+ * not attach ``route_task_to_model``, so emitting the instruction would tell
+ * the agent to call a tool it does not have. Gating here — inside the single
+ * suffix builder that every launch path funnels through — keeps behavior
+ * consistent regardless of how the toggle was persisted, so a stale ``true``
+ * (e.g. the active profile was just deleted) can never reach the prompt.
+ *
+ * Returns `undefined` when disabled so no prompt noise is added — the default
+ * "everything works as normal" path is byte-identical to before.
+ */
+export function buildRouterAtStartSystemSuffix(
+  runAtStart: boolean,
+  hasActiveRouter: boolean,
+): string | undefined {
+  if (!runAtStart || !hasActiveRouter) return undefined;
+  return [
+    "<ROUTE_AT_CONVERSATION_START>",
+    "Before responding to the FIRST user message of this conversation, call",
+    "the `route_task_to_model` tool with that user message so the active",
+    "Model Router selects the appropriate model. After the router switches",
+    "the model, continue handling the user's request with the switched",
+    "model. Apply this only to the very first user message; do not route",
+    "subsequent messages this way.",
+    "</ROUTE_AT_CONVERSATION_START>",
+  ].join("\n");
 }
 
 export function toConversationUrl(conversationId: string): string {
@@ -733,52 +765,21 @@ function isToolRecord(
   );
 }
 
-function shouldIncludeTool(name: string, agentSettings: SettingsRecord) {
-  if (name === BROWSER_TOOL_SET_NAME) {
-    return browserToolsEnabled() && isAgentServerToolAvailable(name);
-  }
-
-  if (name === TASK_TOOL_SET_NAME) {
-    return (
-      agentSettings.enable_sub_agents === true &&
-      isAgentServerToolAvailable(name)
-    );
-  }
-
-  return true;
-}
-
-function getAgentTools(agentSettings: SettingsRecord): AgentToolSpec[] {
-  const tools = new Map<string, AgentToolSpec>();
-
-  for (const name of DEFAULT_TOOL_NAMES) {
-    if (shouldIncludeTool(name, agentSettings)) {
-      tools.set(name, { name, params: {} });
-    }
-  }
-
-  for (const name of [BROWSER_TOOL_SET_NAME, TASK_TOOL_SET_NAME]) {
-    if (shouldIncludeTool(name, agentSettings)) {
-      tools.set(name, { name, params: {} });
-    }
-  }
-
+/** Unset `tools` is left to the server; a list is sent as given. */
+function getAgentTools(
+  agentSettings: SettingsRecord,
+): AgentToolSpec[] | undefined {
   const configuredTools = agentSettings.tools;
   if (
-    Array.isArray(configuredTools) &&
-    configuredTools.every((tool) => isToolRecord(tool))
+    !Array.isArray(configuredTools) ||
+    !configuredTools.every((tool) => isToolRecord(tool))
   ) {
-    for (const tool of configuredTools) {
-      if (shouldIncludeTool(tool.name, agentSettings)) {
-        tools.set(tool.name, {
-          name: tool.name,
-          params: toRecord(tool.params),
-        });
-      }
-    }
+    return undefined;
   }
-
-  return Array.from(tools.values());
+  return configuredTools.map((tool) => ({
+    name: tool.name,
+    params: toRecord(tool.params),
+  }));
 }
 
 function buildInitialMessage(
@@ -799,35 +800,110 @@ function buildInitialMessage(
   };
 }
 
+/**
+ * Shape of a bundled skill entry passed to the agent-server SDK via
+ * `agent_context.skills`. Mirrors the SDK's `Skill` model fields that
+ * the server uses for trigger matching, activation, and system-prompt
+ * injection.
+ */
+interface BundledSkill {
+  name: string;
+  content: string;
+  trigger: { type: "keyword"; keywords: string[] } | null;
+  source: string;
+  description: string | null;
+  is_agentskills_format: true;
+  license?: string;
+  compatibility?: string;
+}
+
+/**
+ * Convert the bundled `SKILLS_CATALOG` entries into the SDK `Skill` JSON
+ * shape so the agent-server can perform trigger matching, skill activation,
+ * and system-prompt injection without cloning the extensions repo.
+ *
+ * The SDK discriminates triggers via `{ type: "keyword", keywords: [...] }`.
+ * Skills with no triggers get `trigger: null` (always-active / on-demand).
+ */
+function buildBundledSkills(): BundledSkill[] {
+  return SKILLS_CATALOG.map((entry) => {
+    const trigger: BundledSkill["trigger"] =
+      entry.triggers?.length > 0
+        ? { type: "keyword", keywords: entry.triggers }
+        : null;
+
+    // Use the absolute path to the skill's SKILL.md so the Python
+    // agent-server can resolve bundled resources (scripts/, references/).
+    // Falls back to "public" in library builds where the path isn't known.
+    const source = __EXTENSIONS_SKILLS_DIR__
+      ? `${__EXTENSIONS_SKILLS_DIR__}/${entry.name}/SKILL.md`
+      : "public";
+
+    return {
+      name: entry.name,
+      content: entry.content,
+      trigger,
+      source,
+      description: entry.description ?? null,
+      is_agentskills_format: true as const,
+      ...(entry.license ? { license: entry.license } : {}),
+      ...(entry.compatibility ? { compatibility: entry.compatibility } : {}),
+    };
+  });
+}
+
 function buildAgentContext(
   agentSettings: SettingsRecord,
   runtimeServicesInfo?: RuntimeServicesInfo | null,
   enablement: SkillEnablement = {},
+  invokedCatalogSkill?: string,
+  runRouterAtStart?: boolean,
+  hasActiveRouter?: boolean,
 ): SettingsRecord {
   const runtimeServicesSuffix =
     buildRuntimeServicesSystemSuffix(runtimeServicesInfo);
+  const routerAtStartSuffix = buildRouterAtStartSystemSuffix(
+    runRouterAtStart ?? false,
+    hasActiveRouter ?? false,
+  );
   const existingContext = toRecord(agentSettings.agent_context);
 
-  // Apply disabled-skill filtering to any skills already present in the
+  // Merge bundled public skills with any skills already present in the
   // agent context (e.g. user-defined skills set via the settings API).
   const existingSkills = Array.isArray(existingContext.skills)
     ? (existingContext.skills as SettingsRecord[])
     : [];
   const disabledSkills = enablement.disabledSkills ?? [];
   const disabledSkillNames = new Set(disabledSkills);
-  const mergedSkills = existingSkills.filter(
-    (skill) =>
-      typeof skill.name !== "string" || !disabledSkillNames.has(skill.name),
-  );
+  const isSkillEnabled = buildSkillEnablementFilter(enablement);
+
+  // The bundled catalog is allow-listed, not deny-listed: it is a build-time
+  // snapshot of ~60 skills, so a deny-list puts every future addition into
+  // every system prompt (OpenHands#16302). Skills the agent context already
+  // carries are user-authored and stay opt-out. A skill the opening message
+  // invokes by name overrides both, for this conversation only.
+  const mergedSkills = [
+    ...existingSkills.filter(
+      (skill) =>
+        typeof skill.name !== "string" || !disabledSkillNames.has(skill.name),
+    ),
+    ...buildBundledSkills().filter(
+      (skill) =>
+        skill.name === invokedCatalogSkill || isSkillEnabled(skill.name),
+    ),
+  ];
 
   return {
     ...existingContext,
-    // Public/bundled skills are intentionally not injected: the agent-server
-    // SDK is told to skip its own extensions-repo clone (load_public_skills
-    // false) and the frontend no longer bundles the @openhands/extensions
-    // catalog (built-ins removed — only user/project skills from
-    // .agents/skills load). This keeps the agent's context aligned with the
-    // UI, which lists only custom skills.
+    // Public skills are bundled at build time from the @openhands/extensions
+    // npm package and passed directly in agent_context.skills. Setting
+    // load_public_skills to false tells the agent-server SDK to skip its own
+    // extensions-repo clone — the frontend is the sole source of public
+    // skills now.
+    //
+    // Migration: the former VITE_LOAD_PUBLIC_SKILLS env var was removed
+    // because bundled skills have no clone latency. Users who previously set
+    // VITE_LOAD_PUBLIC_SKILLS=false to avoid clone delays no longer need it.
     skills: mergedSkills,
     load_public_skills: false,
     load_user_skills: true,
@@ -837,8 +913,18 @@ function buildAgentContext(
     // prompt too. The allow-list has no counterpart to send: the backend
     // loads no catalog skills of its own (`load_public_skills` is false).
     disabled_skills: disabledSkills,
-    ...(runtimeServicesSuffix
-      ? { system_message_suffix: runtimeServicesSuffix }
+    ...(runtimeServicesSuffix || routerAtStartSuffix
+      ? {
+          system_message_suffix: [
+            typeof existingContext.system_message_suffix === "string"
+              ? existingContext.system_message_suffix
+              : undefined,
+            runtimeServicesSuffix,
+            routerAtStartSuffix,
+          ]
+            .filter((s): s is string => Boolean(s))
+            .join("\n\n"),
+        }
       : {}),
   };
 }
@@ -873,7 +959,8 @@ function resolveAcpCommand(agentSettings: SettingsRecord): unknown {
 function buildConfiguredAcpAgentSettings(
   settings: Settings,
   runtimeServicesInfo?: RuntimeServicesInfo | null,
-  _query?: string,
+  query?: string,
+  hasActiveMetaProfile?: boolean,
 ): AgentSettingsPayload {
   const agentSettings = toRecord(settings.agent_settings);
   const payload: AgentSettingsPayload = {
@@ -882,6 +969,9 @@ function buildConfiguredAcpAgentSettings(
       agentSettings,
       runtimeServicesInfo,
       toSkillEnablement(settings),
+      findInvokedCatalogSkill(query),
+      settings.run_router_at_conversation_start,
+      hasActiveMetaProfile,
     ),
   };
 
@@ -940,7 +1030,8 @@ function buildConfiguredAcpAgentSettings(
 function buildConfiguredOpenHandsAgentSettings(
   settings: Settings,
   runtimeServicesInfo?: RuntimeServicesInfo | null,
-  _query?: string,
+  query?: string,
+  hasActiveMetaProfile?: boolean,
 ): AgentSettingsPayload {
   const agentSettings = toRecord(settings.agent_settings);
   const llm = buildNormalizedLlmSettings(agentSettings.llm);
@@ -970,6 +1061,9 @@ function buildConfiguredOpenHandsAgentSettings(
       agentSettings,
       runtimeServicesInfo,
       toSkillEnablement(settings),
+      findInvokedCatalogSkill(query),
+      settings.run_router_at_conversation_start,
+      hasActiveMetaProfile,
     ),
     tools: getAgentTools(agentSettings),
   };
@@ -979,13 +1073,20 @@ function buildConfiguredAgentSettings(
   settings: Settings,
   runtimeServicesInfo?: RuntimeServicesInfo | null,
   query?: string,
+  hasActiveMetaProfile?: boolean,
 ): AgentSettingsPayload {
   return isAcpAgent(settings)
-    ? buildConfiguredAcpAgentSettings(settings, runtimeServicesInfo, query)
+    ? buildConfiguredAcpAgentSettings(
+        settings,
+        runtimeServicesInfo,
+        query,
+        hasActiveMetaProfile,
+      )
     : buildConfiguredOpenHandsAgentSettings(
         settings,
         runtimeServicesInfo,
         query,
+        hasActiveMetaProfile,
       );
 }
 
@@ -1074,6 +1175,8 @@ type AgentSettingsStartConversationPayload = StartConversationPayloadBase & {
   // exclusive agent sources; the server resolves the profile server-side.
   agent_settings?: AgentSettingsPayload;
   agent_profile_id?: string;
+  // Appended to the profile-resolved agent's system-message suffix.
+  agent_launch_additions?: { system_message_suffix_append?: string };
   agent?: never;
 };
 
@@ -1111,6 +1214,16 @@ export interface StartConversationOptions {
   runtimeServicesInfo?: RuntimeServicesInfo | null;
   executionRuntime?: AgentServerInfo["execution_runtime"];
   workspaceHookConfig?: HookConfig | null;
+  /**
+   * Whether a Model Router meta-profile is currently active. The
+   * route-at-conversation-start system-message suffix is only emitted when
+   * this is true AND ``settings.run_router_at_conversation_start`` is on —
+   * without an active meta-profile the agent-server does not attach the
+   * ``route_task_to_model`` tool, so the instruction would be a no-op (or
+   * worse, tell the agent to call a tool it lacks). Defaults to false so a
+   * sync caller that omits it never emits the suffix.
+   */
+  hasActiveMetaProfile?: boolean;
 }
 
 /**
@@ -1162,7 +1275,19 @@ export function buildStartConversationRequest(
     sourceAgentSettings,
     options.runtimeServicesInfo,
     options.query,
+    options.hasActiveMetaProfile,
   );
+  const savedSuffix = toRecord(
+    toRecord(sourceAgentSettings.agent_settings).agent_context,
+  ).system_message_suffix;
+  // Router-at-start stays inline-only because profile-resolved agents do not
+  // have the route_task_to_model tool.
+  const profileLaunchSuffix = [
+    typeof savedSuffix === "string" ? savedSuffix : undefined,
+    buildRuntimeServicesSystemSuffix(options.runtimeServicesInfo),
+  ]
+    .filter((suffix): suffix is string => Boolean(suffix))
+    .join("\n\n");
   const acpServerTag = acpMode
     ? getAcpServerTag(sourceAgentSettings)
     : undefined;
@@ -1193,9 +1318,12 @@ export function buildStartConversationRequest(
     // server/SDK's responsibility to restore on the profile path — tracked in
     // software-agent-sdk#3967 (profile resolution must attach the default
     // toolset + public skills, else a profile-launched OpenHands agent has only
-    // Finish/Think). The dev ``RUNTIME_SERVICES`` system-message suffix remains
-    // agent-settings-only; the Canvas UI tool is a top-level client tool and
+    // Finish/Think). The Canvas UI tool is a top-level client tool and
     // therefore works on both inline-agent and profile launch paths.
+    //
+    // The saved global suffix and ``RUNTIME_SERVICES`` are not part of the
+    // stored profile, so the profile path sends them as
+    // ``agent_launch_additions``.
     //
     // Persistent memory is NOT on that boundary: ``load_memory`` is a global
     // user preference, so the agent-server stamps the stored
@@ -1205,7 +1333,16 @@ export function buildStartConversationRequest(
     // re-send it here (``agent_profile_id`` and ``agent_settings`` are
     // mutually exclusive).
     ...(options.agentProfileId
-      ? { agent_profile_id: options.agentProfileId }
+      ? {
+          agent_profile_id: options.agentProfileId,
+          ...(profileLaunchSuffix
+            ? {
+                agent_launch_additions: {
+                  system_message_suffix_append: profileLaunchSuffix,
+                },
+              }
+            : {}),
+        }
       : { agent_settings: agentSettings }),
     workspace: conversationSettings.workspace,
     // The agent-server caches each client tool's schema per tool *name* for the
@@ -1578,7 +1715,7 @@ export async function buildStartConversationRequestWithEncryptedSettings(options
   parentConversationId?: string;
   workingDir?: string;
   /** Workspace root for the hooks lookup, not the per-conversation `workingDir` (#16907). */
-  hooksProjectDir?: string;
+  hooksProjectDir?: string | null;
   worktree?: boolean;
   agentProfileId?: string;
   agentProfileKind?: AgentKind;
@@ -1589,13 +1726,23 @@ export async function buildStartConversationRequestWithEncryptedSettings(options
     import("./hooks-service"),
   ]);
 
-  const [settingsResult, customSecrets, serverInfo, workspaceHookConfig] =
-    await Promise.all([
-      SettingsService.getSettingsForConversation(),
-      SecretsService.getSecrets(),
-      fetchBackendServerInfo(),
-      HooksService.loadWorkspaceHooks(options.hooksProjectDir),
-    ]);
+  const [
+    settingsResult,
+    customSecrets,
+    serverInfo,
+    workspaceHookConfig,
+    metaProfiles,
+  ] = await Promise.all([
+    SettingsService.getSettingsForConversation(),
+    SecretsService.getSecrets(),
+    fetchBackendServerInfo(),
+    options.hooksProjectDir === null
+      ? Promise.resolve(null)
+      : HooksService.loadWorkspaceHooks(options.hooksProjectDir),
+    // Best-effort: if the meta-profiles endpoint is unreachable we cannot
+    // confirm a router is active, so fail closed (no route-at-start suffix).
+    MetaProfilesService.listMetaProfiles().catch(() => null),
+  ]);
 
   const { agentSettings, conversationSettings, secretsEncrypted } =
     settingsResult;
@@ -1603,6 +1750,7 @@ export async function buildStartConversationRequestWithEncryptedSettings(options
     (serverInfo as { runtime_services?: unknown } | null)?.runtime_services,
   );
   const executionRuntime = serverInfo?.execution_runtime;
+  const hasActiveMetaProfile = !!metaProfiles?.active_meta_profile;
 
   // A profile launch resolves the LLM server-side, so the current-settings
   // subscription check doesn't apply (and can't see the profile's LLM).
@@ -1619,6 +1767,7 @@ export async function buildStartConversationRequestWithEncryptedSettings(options
     runtimeServicesInfo,
     executionRuntime,
     workspaceHookConfig,
+    hasActiveMetaProfile,
   });
 }
 
