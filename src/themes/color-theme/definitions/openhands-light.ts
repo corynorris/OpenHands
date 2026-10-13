@@ -64,6 +64,10 @@ const OPENHANDS_LIGHT_HEROUI = {
 const OPENHANDS_LIGHT_TOKENS: Partial<
   Record<AgentServerUICssVariableName, string>
 > = {
+  // New feedback roles need dark ink on this fork’s light surfaces.
+  "--oh-feedback-error": "#C0282D",
+  "--oh-feedback-success": "#0F734D",
+  "--oh-feedback-warning": "#7D5D08",
   "--oh-focus": "#202020",
   "--oh-border": "#BFC6CF",
   "--oh-border-input": "#A9B1BB",

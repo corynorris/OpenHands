@@ -228,7 +228,8 @@ describe("formatRunPhaseAge — telling a moving run from a stalled one", () => 
       /Invalid/,
     );
     expect(formatRelativeTime("1970-01-01T00:00:00Z", "fr", translate)).toMatch(
-      /1970/,
+      // Midnight UTC is still December 1969 in timezones west of UTC.
+      /1969|1970/,
     );
 
     expect(formatRunPhaseAge("not-a-date", "fr", translate)).toBeNull();

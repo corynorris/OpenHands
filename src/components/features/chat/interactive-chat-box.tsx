@@ -17,12 +17,15 @@ interface InteractiveChatBoxProps {
   onSubmit: (message: string, images: File[], files: File[]) => void;
   disabled?: boolean;
   hasStartedConversation?: boolean;
+  showGitControlBar?: boolean;
+  placeholder?: string;
 }
 
 export function InteractiveChatBox({
   onSubmit,
   disabled = false,
   hasStartedConversation,
+  placeholder,
 }: InteractiveChatBoxProps) {
   const {
     images,
@@ -74,6 +77,7 @@ export function InteractiveChatBox({
         disabled={isDisabled}
         isNewConversationPending={disabled}
         hasStartedConversation={hasStartedConversation}
+        placeholder={placeholder}
         onSubmit={handleSubmit}
         onFilesPaste={handleUpload}
       />
